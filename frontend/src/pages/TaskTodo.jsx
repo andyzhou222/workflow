@@ -163,12 +163,12 @@ export default function TaskTodo() {
                   <button
                     className="btn secondary"
                     type="button"
-                    onClick={()=>navigate(`/instance-detail/${item.id}`)}
+                    onClick={()=>navigate(`/instances/${item.id}`)}
                   >查看详情</button>
                   <button
                     className="btn"
                     type="button"
-                    onClick={()=>navigate('/launch-flow', { state: { prefill: { template_id: item.template_id, data: item.data }, oldInstanceId: item.id } })}
+                    onClick={()=>navigate('/launch', { state: { prefill: { template_id: item.template_id, data: item.data }, oldInstanceId: item.id } })}
                   >重新编辑</button>
                 </div>
               </div>
@@ -248,7 +248,7 @@ export default function TaskTodo() {
                   <div className="hint" style={{ marginBottom: 12 }}>该流程已被驳回，请根据意见修改后重新发起。</div>
                   <button
                     className="btn"
-                    onClick={()=>navigate('/launch-flow', { state: { prefill: { template_id: instanceDetail.template_id, data: instanceDetail.data }, oldInstanceId: instanceDetail.id } })}
+                    onClick={()=>navigate('/launch', { state: { prefill: { template_id: instanceDetail.template_id, data: instanceDetail.data }, oldInstanceId: instanceDetail.id } })}
                   >
                     重新编辑并提交
                   </button>
