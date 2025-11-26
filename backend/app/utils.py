@@ -6,7 +6,7 @@ from .config import SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES
 
 # 初始化密码上下文，确保 bcrypt 后端可用
 try:
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 except Exception as e:
     raise RuntimeError(f"Failed to initialize bcrypt context: {e}. Please ensure bcrypt is installed: pip install bcrypt")
 
