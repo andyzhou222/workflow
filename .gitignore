@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+env/
+venv/
+
+# FastAPI uploads
+uploads/
+
+# SQLite database
+*.sqlite
+*.db
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+
+# Mac system files
+.DS_Store
+
+# Logs
+*.log
