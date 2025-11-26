@@ -1,8 +1,19 @@
-fastapi==0.98.0
-uvicorn==0.22.0
-sqlmodel==0.0.16
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
-aiofiles==23.1.0
-bcrypt==4.0.1
+#!/bin/bash
+set -e   # 遇到错误立即停止
+
+echo "========== START DEPLOY =========="
+
+# 输出环境变量调试
+echo "PORT=$PORT"
+echo "DATABASE_URL=$DATABASE_URL"
+
+# 切换到后端目录
+cd backend
+
+echo "Installing dependencies..."
+pip install -r requirements.txt
+
+echo "Starting FastAPI server..."
+uvicorn main:app --host 0.0.0.0 --port $PORT
+
+echo "========== END DEPLOY =========="
