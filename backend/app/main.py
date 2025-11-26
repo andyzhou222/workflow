@@ -14,7 +14,13 @@ app = FastAPI(title="Workflow Full - FastAPI")
 # 添加 CORS 支持
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "https://jl-inndlink.onrender.com",  # Render 前端域名
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
