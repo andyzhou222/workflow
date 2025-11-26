@@ -139,22 +139,31 @@ export default function Profile(){
     }
   }
 
-  // 生成头像URL或默认头像
+  // 生成头像URL或默认头像（注意前后端不同域名）
   const getAvatarUrl = () => {
-    if(avatar) {
-      // 确保URL正确编码
-      let avatarUrl = avatar;
-      if (!avatar.startsWith('http')) {
-        // 如果已经是 /api 开头，不需要再加
-        if (!avatar.startsWith('/api')) {
-          avatarUrl = `/api${avatar}`;
-        }
+    const apiBase = (import.meta.env.VITE_API_BASE || '').trim();
+    const apiOrigin = apiBase.replace(/\/api\/?$/, '');
+
+    if (avatar) {
+      // 已经是完整 URL
+      if (avatar.startsWith('http')) {
+        return `${avatar}?t=${Date.now()}`;
       }
-      // 添加时间戳防止缓存问题
-      return `${avatarUrl}?t=${Date.now()}`;
+
+      // 兼容旧数据：可能是 /uploads/... 或 /api/uploads/...
+      let path = avatar;
+      if (path.startsWith('/api')) {
+        path = path.replace(/^\/api/, '');
+      }
+
+      const full = apiOrigin ? `${apiOrigin}${path}` : path;
+      return `${full}?t=${Date.now()}`;
     }
+
     // 使用默认头像（可以根据用户名生成）
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(username || 'User')}&background=3370ff&color=fff&size=200`;
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      username || 'User'
+    )}&background=3370ff&color=fff&size=200`;
   };
 
   if(loading) {

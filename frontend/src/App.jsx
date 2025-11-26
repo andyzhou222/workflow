@@ -14,6 +14,9 @@ import Profile from './pages/Profile';
 import UserManagement from './pages/UserManagement';
 import api, { setToken } from './api';
 
+const API_BASE = (import.meta.env.VITE_API_BASE || '').trim();
+const API_ORIGIN = API_BASE.replace(/\/api\/?$/, '');
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
@@ -116,21 +119,17 @@ export default function App() {
   return (
     <div className="app-shell">
       <div className="sidebar card">
-        <div className="sidebar-header">
+        <div className="sidebar-header" style={{ justifyContent: 'center' }}>
           {logoSrc ? (
             <img
               src={logoSrc}
               alt="Logo"
-              style={{ width: '32px', height: '32px', borderRadius: '8px', marginRight: '8px' }}
+              style={{ width: '40px', height: '40px', borderRadius: '12px', objectFit: 'contain' }}
               onError={() => setLogoOk(false)}
             />
           ) : (
             <div className="logo-fallback">WF</div>
           )}
-          <div>
-            <div style={{ fontWeight: 600 }}>工作流平台</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>内容签审与流程管理</div>
-          </div>
         </div>
 
         <nav className="sidebar-nav">
@@ -183,11 +182,13 @@ export default function App() {
             <img
               src={
                 currentUser?.avatar
-                  ? currentUser.avatar.startsWith('http')
-                    ? currentUser.avatar
-                    : currentUser.avatar.startsWith('/api')
-                      ? currentUser.avatar
-                      : `/api${currentUser.avatar}`
+                  ? (() => {
+                      const av = currentUser.avatar;
+                      if (av.startsWith('http')) return av;
+                      let path = av;
+                      if (path.startsWith('/api')) path = path.replace(/^\/api/, '');
+                      return API_ORIGIN ? `${API_ORIGIN}${path}` : path;
+                    })()
                   : `https://ui-avatars.com/api/?name=${encodeURIComponent(
                       currentUser?.username || 'User'
                     )}&background=3370ff&color=fff&size=64`

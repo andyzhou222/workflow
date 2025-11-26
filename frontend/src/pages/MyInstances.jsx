@@ -82,7 +82,12 @@ export default function MyInstances() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
           {list.map(item => (
-            <div key={item.id} className="card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/instance-detail/${item.id}`)}>
+            <div
+              key={item.id}
+              className="card"
+              style={{ cursor: 'pointer' }}
+              onClick={() => navigate(`/instances/${item.id}`)}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div>
                   <strong>{item.title || item.template_name || '未命名流程'}</strong>
