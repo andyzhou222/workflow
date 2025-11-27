@@ -155,8 +155,13 @@ export default function Profile(){
       if (path.startsWith('/api')) {
         path = path.replace(/^\/api/, '');
       }
+      // 确保路径以 / 开头
+      if (!path.startsWith('/')) {
+        path = '/' + path;
+      }
 
-      const full = apiOrigin ? `${apiOrigin}${path}` : path;
+      // 如果有 API_ORIGIN，使用完整URL；否则使用相对路径（会通过代理）
+      const full = apiOrigin ? `${apiOrigin}${path}` : `/api${path}`;
       return `${full}?t=${Date.now()}`;
     }
 

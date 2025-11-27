@@ -116,23 +116,34 @@ export default function App() {
 
   const logoSrc = logoOk ? '/logo.png' : '';
 
+  // 生成头像URL
+  const getAvatarUrl = (avatar) => {
+    if (!avatar) return null;
+    if (avatar.startsWith('http')) return avatar;
+    // 处理 /api/uploads/... 或 /uploads/... 格式
+    let path = avatar;
+    if (path.startsWith('/api')) path = path.replace(/^\/api/, '');
+    // 如果有 API_ORIGIN，使用完整URL；否则使用相对路径
+    return API_ORIGIN ? `${API_ORIGIN}${path}?t=${Date.now()}` : `${path}?t=${Date.now()}`;
+  };
+
   return (
     <div className="app-shell">
       <div className="sidebar card">
-        <div className="sidebar-header" style={{ justifyContent: 'center' }}>
+        <div className="sidebar-header" style={{ justifyContent: 'center', padding: '20px 16px', marginBottom: '8px' }}>
           {logoSrc ? (
             <img
               src={logoSrc}
               alt="Logo"
-              style={{ width: '40px', height: '40px', borderRadius: '12px', objectFit: 'contain' }}
+              style={{ width: '64px', height: '64px', borderRadius: '12px', objectFit: 'contain' }}
               onError={() => setLogoOk(false)}
             />
           ) : (
-            <div className="logo-fallback">WF</div>
+            <div className="logo-fallback" style={{ width: '64px', height: '64px', fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', background: 'var(--primary)', color: 'white', fontWeight: 'bold' }}>WF</div>
           )}
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" style={{ padding: '0 12px' }}>
           <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
             <span>📊 仪表盘</span>
           </NavLink>
@@ -145,7 +156,7 @@ export default function App() {
           <NavLink to="/my-instances" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
             <span>📂 我发起的流程</span>
           </NavLink>
-          <div className="nav-section-title">流程配置</div>
+          <div className="nav-section-title" style={{ marginTop: '12px', marginBottom: '8px' }}>流程配置</div>
           <NavLink to="/templates" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
             <span>📄 模板管理</span>
           </NavLink>
@@ -154,7 +165,7 @@ export default function App() {
           </NavLink>
           {isAdmin && (
             <>
-              <div className="nav-section-title">系统管理</div>
+              <div className="nav-section-title" style={{ marginTop: '12px', marginBottom: '8px' }}>系统管理</div>
               <NavLink to="/users" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                 <span>👥 用户管理</span>
               </NavLink>
@@ -162,7 +173,7 @@ export default function App() {
           )}
         </nav>
 
-        <div className="sidebar-footer">
+        <div className="sidebar-footer" style={{ padding: '12px', marginTop: 'auto' }}>
           <div
             style={{
               padding: '12px',
@@ -182,13 +193,9 @@ export default function App() {
             <img
               src={
                 currentUser?.avatar
-                  ? (() => {
-                      const av = currentUser.avatar;
-                      if (av.startsWith('http')) return av;
-                      let path = av;
-                      if (path.startsWith('/api')) path = path.replace(/^\/api/, '');
-                      return API_ORIGIN ? `${API_ORIGIN}${path}` : path;
-                    })()
+                  ? getAvatarUrl(currentUser.avatar) || `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      currentUser?.username || 'User'
+                    )}&background=3370ff&color=fff&size=64`
                   : `https://ui-avatars.com/api/?name=${encodeURIComponent(
                       currentUser?.username || 'User'
                     )}&background=3370ff&color=fff&size=64`
@@ -199,7 +206,8 @@ export default function App() {
                 height: '40px',
                 borderRadius: '50%',
                 objectFit: 'cover',
-                border: '2px solid var(--border)'
+                border: '2px solid var(--border)',
+                flexShrink: 0
               }}
               onError={(e) => {
                 e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
@@ -215,7 +223,8 @@ export default function App() {
                   color: 'var(--text-primary)',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  lineHeight: '1.4'
                 }}
               >
                 {currentUser?.display_name || currentUser?.username || '用户'}
@@ -226,10 +235,11 @@ export default function App() {
                   color: 'var(--text-secondary)',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  lineHeight: '1.4'
                 }}
               >
-                @{currentUser?.username}
+                @{currentUser?.username || ''}
               </div>
             </div>
             <button
@@ -258,7 +268,6 @@ export default function App() {
           </button>
         </div>
       </div>
-
       <div className="main card">
         <Routes>
           <Route path="/dashboard" element={<Dashboard />} />
