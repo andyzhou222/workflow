@@ -145,13 +145,15 @@ export default function Profile(){
     const apiOrigin = apiBase.replace(/\/api\/?$/, '');
 
     if (avatar) {
-      // 已经是完整 URL
+      // 如果已经是完整 URL，直接返回
       if (avatar.startsWith('http')) {
         return `${avatar}?t=${Date.now()}`;
       }
 
-      // 兼容旧数据：可能是 /uploads/... 或 /api/uploads/...
+      // 后端返回的格式是 /api/uploads/avatars/xxx.jpg
+      // 需要转换为完整后端 URL
       let path = avatar;
+      // 如果路径以 /api 开头，去掉 /api，因为我们要拼接完整的后端域名
       if (path.startsWith('/api')) {
         path = path.replace(/^\/api/, '');
       }
@@ -160,9 +162,13 @@ export default function Profile(){
         path = '/' + path;
       }
 
-      // 如果有 API_ORIGIN，使用完整URL；否则使用相对路径（会通过代理）
-      const full = apiOrigin ? `${apiOrigin}${path}` : `/api${path}`;
-      return `${full}?t=${Date.now()}`;
+      // 如果有 API_ORIGIN，使用完整URL；否则使用 /api 前缀（通过前端代理）
+      if (apiOrigin) {
+        return `${apiOrigin}${path}?t=${Date.now()}`;
+      } else {
+        // 如果没有配置 API_ORIGIN，使用 /api 前缀（通过 Vercel/Render 代理）
+        return `/api${path}?t=${Date.now()}`;
+      }
     }
 
     // 使用默认头像（可以根据用户名生成）

@@ -119,27 +119,43 @@ export default function App() {
   // 生成头像URL
   const getAvatarUrl = (avatar) => {
     if (!avatar) return null;
-    if (avatar.startsWith('http')) return avatar;
-    // 处理 /api/uploads/... 或 /uploads/... 格式
+    // 如果已经是完整 URL，直接返回
+    if (avatar.startsWith('http')) {
+      return `${avatar}?t=${Date.now()}`;
+    }
+    // 后端返回的格式是 /api/uploads/avatars/xxx.jpg
+    // 需要转换为完整后端 URL
     let path = avatar;
-    if (path.startsWith('/api')) path = path.replace(/^\/api/, '');
-    // 如果有 API_ORIGIN，使用完整URL；否则使用相对路径
-    return API_ORIGIN ? `${API_ORIGIN}${path}?t=${Date.now()}` : `${path}?t=${Date.now()}`;
+    // 如果路径以 /api 开头，去掉 /api，因为我们要拼接完整的后端域名
+    if (path.startsWith('/api')) {
+      path = path.replace(/^\/api/, '');
+    }
+    // 确保路径以 / 开头
+    if (!path.startsWith('/')) {
+      path = '/' + path;
+    }
+    // 如果有 API_ORIGIN，使用完整URL；否则使用 /api 前缀（通过前端代理）
+    if (API_ORIGIN) {
+      return `${API_ORIGIN}${path}?t=${Date.now()}`;
+    } else {
+      // 如果没有配置 API_ORIGIN，使用 /api 前缀（通过 Vercel/Render 代理）
+      return `/api${path}?t=${Date.now()}`;
+    }
   };
 
   return (
     <div className="app-shell">
       <div className="sidebar card">
-        <div className="sidebar-header" style={{ justifyContent: 'center', padding: '20px 16px', marginBottom: '8px' }}>
+        <div className="sidebar-header" style={{ justifyContent: 'center', padding: '24px 16px', marginBottom: '8px' }}>
           {logoSrc ? (
             <img
               src={logoSrc}
               alt="Logo"
-              style={{ width: '64px', height: '64px', borderRadius: '12px', objectFit: 'contain' }}
+              style={{ width: '100px', height: '100px', borderRadius: '12px', objectFit: 'contain' }}
               onError={() => setLogoOk(false)}
             />
           ) : (
-            <div className="logo-fallback" style={{ width: '64px', height: '64px', fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', background: 'var(--primary)', color: 'white', fontWeight: 'bold' }}>WF</div>
+            <div className="logo-fallback" style={{ width: '100px', height: '100px', fontSize: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', background: 'var(--primary)', color: 'white', fontWeight: 'bold' }}>WF</div>
           )}
         </div>
 
