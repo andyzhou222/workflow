@@ -146,16 +146,16 @@ export default function App() {
   return (
     <div className="app-shell">
       <div className="sidebar card">
-        <div className="sidebar-header" style={{ justifyContent: 'center', padding: '24px 16px', marginBottom: '8px' }}>
+        <div className="sidebar-header" style={{ justifyContent: 'center', padding: '12px 8px', marginBottom: '8px' }}>
           {logoSrc ? (
             <img
               src={logoSrc}
               alt="Logo"
-              style={{ width: '100px', height: '100px', borderRadius: '12px', objectFit: 'contain' }}
+              style={{ width: '120px', height: '120px', borderRadius: '12px', objectFit: 'contain' }}
               onError={() => setLogoOk(false)}
             />
           ) : (
-            <div className="logo-fallback" style={{ width: '100px', height: '100px', fontSize: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', background: 'var(--primary)', color: 'white', fontWeight: 'bold' }}>WF</div>
+            <div className="logo-fallback" style={{ width: '120px', height: '120px', fontSize: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', background: 'var(--primary)', color: 'white', fontWeight: 'bold' }}>WF</div>
           )}
         </div>
 
