@@ -1,51 +1,375 @@
-import React, { useEffect } from 'react';
-import { Routes, Route, Link, useNavigate, Navigate, useLocation } from 'react-router-dom'; // 导入 useLocation
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Routes,
+  Route,
+  NavLink,
+  useNavigate,
+  Navigate,
+  useLocation,
+} from 'react-router-dom';
 import Login from './pages/Login';
+import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import TemplateList from './pages/TemplateList';
 import TemplateDesigner from './pages/TemplateDesigner';
-import { setToken } from './api';
+import LaunchFlow from './pages/LaunchFlow';
+import TaskTodo from './pages/TaskTodo';
+import MyInstances from './pages/MyInstances';
+import TaskMonitor from './pages/TaskMonitor';
+import UserManagement from './pages/UserManagement';
+import Profile from './pages/Profile';
+import HrArchive from './pages/HrArchive';
+import StandardDocs from './pages/StandardDocs';
+import InstanceDetail from './pages/InstanceDetail';
+import api, { setToken } from './api';
 
-export default function App(){
-  const nav = useNavigate();
-  const location = useLocation(); // 🌟 关键：使用 useLocation 钩子获取当前路径对象
+const AUTH_ROUTES = ['/login', '/register', '/forgot-password'];
+const apiBase =
+  (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || '').trim();
+const API_ORIGIN = apiBase ? apiBase.replace(/\/api\/?$/, '') : '';
 
-  useEffect(()=>{
-    const t = localStorage.getItem('token');
-    if(t) setToken(t);
+export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
 
-    // 检查 token。如果不存在 token 且当前路径不是 '/login'，则跳转到登录页。
-    // 使用 location.pathname 代替全局 location.pathname，更符合 React Router 规范。
-    if(!t && location.pathname !== '/login') {
-      console.log('Token missing, redirecting to /login');
-      nav('/login', { replace: true });
+  const isAuthPage = AUTH_ROUTES.includes(location.pathname);
+
+  const getAvatarUrl = useCallback((avatar) => {
+    if (!avatar) {
+      const username = currentUser?.display_name || currentUser?.username || 'User';
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        username,
+      )}&background=3370ff&color=fff&size=160`;
     }
-  }, [location.pathname]); // 依赖中添加 location.pathname 确保路径变化时重新检查
+    if (avatar.startsWith('http')) {
+      return `${avatar}?t=${Date.now()}`;
+    }
+    let path = avatar;
+    if (!path.startsWith('/api')) {
+      if (path.startsWith('/')) {
+        path = `/api${path}`;
+      } else {
+        path = `/api/${path}`;
+      }
+    }
+    if (API_ORIGIN) {
+      return `${API_ORIGIN}${path}?t=${Date.now()}`;
+    }
+    return `${path}?t=${Date.now()}`;
+  }, [currentUser]);
+
+  const fetchCurrentUser = useCallback(
+    async (silent = false) => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setCurrentUser(null);
+        localStorage.removeItem('currentUser');
+        if (!silent) setLoadingUser(false);
+        if (!isAuthPage && location.pathname !== '/login') {
+          navigate('/login', { replace: true });
+        }
+        return;
+      }
+      setToken(token);
+      if (!silent) setLoadingUser(true);
+      try {
+        const { data } = await api.get('/users/me');
+        setCurrentUser(data);
+        localStorage.setItem('currentUser', JSON.stringify(data));
+      } catch (err) {
+        setCurrentUser(null);
+        localStorage.removeItem('currentUser');
+        setToken(null);
+        localStorage.removeItem('token');
+        if (!AUTH_ROUTES.includes(location.pathname)) {
+          navigate('/login', { replace: true });
+        }
+      } finally {
+        if (!silent) setLoadingUser(false);
+      }
+    },
+    [isAuthPage, location.pathname, navigate],
+  );
+
+  useEffect(() => {
+    fetchCurrentUser();
+  }, [fetchCurrentUser]);
+
+  useEffect(() => {
+    const handleAuthSuccess = () => {
+      fetchCurrentUser();
+      navigate('/dashboard', { replace: true });
+    };
+    const handleAuthFailed = () => {
+      setCurrentUser(null);
+      localStorage.removeItem('currentUser');
+      navigate('/login', { replace: true });
+    };
+    const handleUserInfoUpdated = () => fetchCurrentUser(true);
+
+    window.addEventListener('auth-success', handleAuthSuccess);
+    window.addEventListener('auth-failed', handleAuthFailed);
+    window.addEventListener('user-info-updated', handleUserInfoUpdated);
+    return () => {
+      window.removeEventListener('auth-success', handleAuthSuccess);
+      window.removeEventListener('auth-failed', handleAuthFailed);
+      window.removeEventListener('user-info-updated', handleUserInfoUpdated);
+    };
+  }, [fetchCurrentUser, navigate]);
+
+  const handleLogout = () => {
+    setToken(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('currentUser');
+    setCurrentUser(null);
+    navigate('/login', { replace: true });
+  };
+
+  const isAdmin = ['admin', 'company_admin'].includes(currentUser?.role);
+  const isDeptAdmin = currentUser?.role === 'dept_admin';
+
+  const navSections = useMemo(
+    () => [
+      {
+        title: '日常',
+        items: [
+          { to: '/dashboard', label: '仪表盘', icon: '📊' },
+          { to: '/launch', label: '发起任务', icon: '🚀' },
+          { to: '/tasks/todo', label: '待办任务', icon: '✅' },
+          { to: '/instances/mine', label: '我的实例', icon: '📁' },
+          { to: '/standard-docs', label: '标准文档库', icon: '📚' },
+        ],
+      },
+      {
+        title: '流程管理',
+        items: [
+          { to: '/templates', label: '流程模板', icon: '🧱' },
+          { to: '/designer', label: '模板设计器', icon: '🎨' },
+          { to: '/task-monitor', label: '任务监控', icon: '📈', roles: ['admin', 'company_admin'] },
+          {
+            to: '/user-management',
+            label: '用户管理',
+            icon: '👥',
+            roles: ['admin', 'company_admin'],
+          },
+          {
+            to: '/hr-archive',
+            label: '人事档案',
+            icon: '🗂',
+            roles: ['admin', 'company_admin', 'dept_admin'],
+          },
+        ],
+      },
+      {
+        title: '个人',
+        items: [{ to: '/profile', label: '个人中心', icon: '👤' }],
+      },
+    ],
+    [],
+  );
+
+  const RequireAuth = ({ children }) => {
+    if (loadingUser) {
+      return <div className="loading">加载中...</div>;
+    }
+    if (!currentUser) {
+      return <Navigate to="/login" replace />;
+    }
+    return children;
+  };
+
+  if (isAuthPage) {
+    return (
+      <Routes>
+        <Route
+          path="/login"
+          element={currentUser ? <Navigate to="/dashboard" replace /> : <Login />}
+        />
+        <Route
+          path="/register"
+          element={currentUser ? <Navigate to="/dashboard" replace /> : <Register />}
+        />
+        <Route
+          path="/forgot-password"
+          element={currentUser ? <Navigate to="/dashboard" replace /> : <ForgotPassword />}
+        />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
+  if (loadingUser && !currentUser) {
+    return <div className="loading">加载用户信息...</div>;
+  }
 
   return (
     <div className="app-shell">
-      <div className="sidebar card">
-        <h3>Workflow</h3>
-        <nav>
-          <div><Link to="/dashboard">Dashboard</Link></div>
-          <div><Link to="/templates">Templates</Link></div>
-          <div><Link to="/designer">Designer</Link></div>
-        </nav>
-        <div style={{marginTop:'auto'}}>
-          <button className="btn" onClick={()=>{
-            localStorage.removeItem('token'); setToken(null); window.location.href='/login';
-          }}>Logout</button>
+      <aside className="sidebar card">
+        <div className="sidebar-header">
+          <img src="/logo192.png" alt="logo" className="sidebar-logo" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontWeight: 600, fontSize: 16 }}>Workflow</span>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+              {currentUser?.display_name || currentUser?.username}
+            </span>
+          </div>
         </div>
-      </div>
-      <div className="main card">
+        <div style={{ padding: '16px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <img
+              src={getAvatarUrl(currentUser?.avatar)}
+              alt="avatar"
+              style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }}
+            />
+            <div>
+              <div style={{ fontWeight: 600 }}>
+                {currentUser?.display_name || currentUser?.username || '-'}
+              </div>
+              <div className="hint" style={{ fontSize: 12 }}>
+                {currentUser?.role === 'admin'
+                  ? '系统管理员'
+                  : currentUser?.role === 'company_admin'
+                  ? '公司管理员'
+                  : currentUser?.role === 'dept_admin'
+                  ? '部门管理员'
+                  : '普通用户'}
+              </div>
+            </div>
+          </div>
+        </div>
+        <nav className="sidebar-nav">
+          {navSections.map((section) => (
+            <div key={section.title}>
+              <div className="nav-section-title">{section.title}</div>
+              {section.items
+                .filter((item) => !item.roles || item.roles.includes(currentUser?.role))
+                .map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      isActive ? 'nav-item active' : 'nav-item'
+                    }
+                  >
+                    <span style={{ marginRight: 8 }}>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </NavLink>
+                ))}
+            </div>
+          ))}
+        </nav>
+        <div className="sidebar-footer">
+          <button className="btn secondary" style={{ width: '100%' }} onClick={handleLogout}>
+            退出登录
+          </button>
+        </div>
+      </aside>
+
+      <main className="main">
         <Routes>
-          <Route path="/login" element={<Login/>} />
-          <Route path="/dashboard" element={<Dashboard/>} />
-          <Route path="/templates" element={<TemplateList/>} />
-          <Route path="/designer" element={<TemplateDesigner/>} />
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <Dashboard />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/templates"
+            element={
+              <RequireAuth>
+                <TemplateList />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/designer"
+            element={
+              <RequireAuth>
+                <TemplateDesigner />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/launch"
+            element={
+              <RequireAuth>
+                <LaunchFlow />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/tasks/todo"
+            element={
+              <RequireAuth>
+                <TaskTodo />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/instances/mine"
+            element={
+              <RequireAuth>
+                <MyInstances />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/task-monitor"
+            element={
+              <RequireAuth>
+                {isAdmin ? <TaskMonitor /> : <Navigate to="/dashboard" replace />}
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/user-management"
+            element={
+              <RequireAuth>
+                {isAdmin ? <UserManagement /> : <Navigate to="/dashboard" replace />}
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/hr-archive"
+            element={
+              <RequireAuth>
+                {isAdmin || isDeptAdmin ? <HrArchive /> : <Navigate to="/dashboard" replace />}
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/standard-docs"
+            element={
+              <RequireAuth>
+                <StandardDocs />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <RequireAuth>
+                <Profile />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/instances/:instanceId"
+            element={
+              <RequireAuth>
+                <InstanceDetail />
+              </RequireAuth>
+            }
+          />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
-      </div>
+      </main>
     </div>
-  )
+  );
 }
