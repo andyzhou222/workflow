@@ -9,6 +9,7 @@ export default function StandardDocs() {
   const [title, setTitle] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [fileInputRef, setFileInputRef] = useState(null);
 
   useEffect(() => {
     load();
@@ -106,6 +107,27 @@ export default function StandardDocs() {
       )}
 
       <div className="card" style={{ marginBottom: 16 }}>
+        <div className="form-row" style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              if (fileInputRef) {
+                fileInputRef.click();
+              }
+            }}
+            disabled={uploading}
+          >
+            {uploading ? '正在上传...' : '上传文件'}
+          </button>
+          <input
+            type="file"
+            style={{ display: 'none' }}
+            ref={el => setFileInputRef(el)}
+            onChange={handleUpload}
+            disabled={uploading}
+          />
+        </div>
         <div className="form-row" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <div style={{ flex: 1 }}>
             <label>文档标题</label>
@@ -115,10 +137,6 @@ export default function StandardDocs() {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="请输入标准文档标题（如：品牌视觉规范、报销制度等）"
             />
-          </div>
-          <div>
-            <label style={{ display: 'block' }}>选择文件</label>
-            <input type="file" onChange={handleUpload} disabled={uploading} />
           </div>
         </div>
         <div className="hint" style={{ marginTop: 8 }}>支持所有登录用户上传，建议上传 PDF 或 Office 文档。</div>
