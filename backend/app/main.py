@@ -70,11 +70,11 @@ def serialize_user(user: models.User | None):
 @app.post("/api/auth/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
     try:
-    user = auth.authenticate_user(form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(status_code=400, detail="invalid credentials")
-    token = create_access_token(user.username)
-    crud.write_audit(user.username, "login", {})
+        user = auth.authenticate_user(form_data.username, form_data.password)
+        if not user:
+            raise HTTPException(status_code=400, detail="invalid credentials")
+        token = create_access_token(user.username)
+        crud.write_audit(user.username, "login", {})
         return {
             "access_token": token,
             "token_type": "bearer",
