@@ -28,7 +28,12 @@ app.add_middleware(
 )
 
 # init db and default admin
-crud.init_db()
+# 延迟初始化，避免启动时连接失败导致服务无法启动
+try:
+    crud.init_db()
+except Exception as e:
+    print(f"Warning: Database initialization failed: {e}")
+    print("Service will continue to start, but database operations may fail.")
 
 # mount static frontend build (index.html should exist in app/static)
 static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -318,6 +323,20 @@ def start_instance(payload: schemas.StartInstance, cur: models.User = Depends(au
 def list_my_instances(status: Optional[str] = None, cur: models.User = Depends(auth.get_current_user)):
     instances = crud.list_instances_by_user(cur.username, status=status)
     return instances
+
+@app.get("/api/instances/monitor")
+def monitor_instances(cur: models.User = Depends(auth.get_current_user)):
+    """系统管理员任务监控：查看所有运行中任务的进程、负责人、停留时长"""
+    if cur.role not in ("admin", "company_admin"):
+        raise HTTPException(status_code=403, detail="仅系统管理员和公司管理员可访问")
+    try:
+        instances = crud.list_all_instances_for_monitoring()
+        return instances
+    except Exception as e:
+        import traceback
+        print(f"Monitor instances error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/api/instances/{instance_id}")
 def get_instance_detail(instance_id: str, cur: models.User = Depends(auth.get_current_user)):
