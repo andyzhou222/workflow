@@ -173,7 +173,7 @@ def update_me(data: schemas.UserUpdate, user: models.User = Depends(auth.get_cur
             if data.avatar is not None:
                 db_user.avatar = data.avatar
             # 普通用户不能修改自己的角色
-            if data.role is not None and user.role == "admin":
+            if data.role is not None and user.role in ("admin", "company_admin"):
                 db_user.role = data.role
             s.add(db_user)
             s.commit()
@@ -288,7 +288,7 @@ def list_templates(cur: models.User = Depends(auth.get_current_user)):
 
 @app.delete("/api/templates/{template_id}")
 def delete_template(template_id: str, cur: models.User = Depends(auth.get_current_user)):
-    if cur.role not in ("admin", "dept_admin"):
+    if cur.role not in ("admin", "company_admin", "dept_admin"):
         raise HTTPException(status_code=403, detail="仅管理员可删除模板")
     try:
         crud.delete_template(template_id)
@@ -385,7 +385,7 @@ def dashboard_stats(cur: models.User = Depends(auth.get_current_user)):
 @app.get("/api/users")
 def list_users(cur: models.User = Depends(auth.get_current_user)):
     """获取用户列表（仅管理员）"""
-    if cur.role != "admin":
+    if cur.role not in ("admin", "company_admin"):
         raise HTTPException(status_code=403, detail="admin only")
     with Session(crud.engine) as s:
         users = s.exec(select(models.User).order_by(models.User.created_at.desc())).all()
@@ -403,7 +403,7 @@ def list_users(cur: models.User = Depends(auth.get_current_user)):
 @app.put("/api/users/{user_id}")
 def update_user(user_id: str, data: schemas.UserUpdate, cur: models.User = Depends(auth.get_current_user)):
     """更新用户信息（仅管理员）"""
-    if cur.role != "admin":
+    if cur.role not in ("admin", "company_admin"):
         raise HTTPException(status_code=403, detail="admin only")
     try:
         with Session(crud.engine) as s:
@@ -425,7 +425,7 @@ def update_user(user_id: str, data: schemas.UserUpdate, cur: models.User = Depen
                 db_user.title = data.title
             if data.role is not None:
                 # 验证角色值
-                if data.role not in ["user", "dept_admin", "admin"]:
+                if data.role not in ["user", "dept_admin", "admin", "company_admin"]:
                     raise HTTPException(status_code=400, detail="Invalid role")
                 db_user.role = data.role
             if data.avatar is not None:
@@ -456,7 +456,7 @@ def update_user(user_id: str, data: schemas.UserUpdate, cur: models.User = Depen
 
 @app.get("/api/departments")
 def list_departments(cur: models.User = Depends(auth.get_current_user)):
-    if cur.role not in ("admin", "dept_admin"):
+    if cur.role not in ("admin", "company_admin", "dept_admin"):
         raise HTTPException(status_code=403, detail="permission denied")
     return {"items": crud.list_departments()}
 
@@ -474,8 +474,22 @@ def list_user_options(cur: models.User = Depends(auth.get_current_user)):
 
 @app.get("/api/audit")
 def get_audit(cur: models.User = Depends(auth.get_current_user)):
-    if cur.role != "admin":
+    if cur.role not in ("admin", "company_admin"):
         raise HTTPException(status_code=403, detail="admin only")
     with Session(crud.engine) as s:
         logs = s.exec(select(models.AuditLog)).all()
         return logs
+
+@app.get("/api/instances/monitor")
+def monitor_instances(cur: models.User = Depends(auth.get_current_user)):
+    """系统管理员任务监控：查看所有运行中任务的进程、负责人、停留时长"""
+    if cur.role not in ("admin", "company_admin"):
+        raise HTTPException(status_code=403, detail="仅系统管理员和公司管理员可访问")
+    try:
+        instances = crud.list_all_instances_for_monitoring()
+        return instances
+    except Exception as e:
+        import traceback
+        print(f"Monitor instances error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

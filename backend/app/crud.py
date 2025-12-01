@@ -277,6 +277,78 @@ def list_departments():
         departments = sorted({row[0] for row in rows if row[0]})
         return departments
 
+def list_all_instances_for_monitoring():
+    """列出所有流程实例供系统管理员监控，包括当前节点、负责人、停留时长"""
+    from datetime import datetime, timezone, timedelta
+    tz = timezone(timedelta(hours=8))
+    now = datetime.now(tz)
+    
+    with Session(engine) as s:
+        # 获取所有运行中的实例
+        instances = s.exec(
+            select(ProcessInstance)
+            .where(ProcessInstance.status == "running")
+            .order_by(ProcessInstance.started_at.desc())
+        ).all()
+        
+        results = []
+        for inst in instances:
+            tpl = s.get(ProcessTemplate, inst.template_id)
+            current_task = None
+            current_node_name = inst.current_node  # 默认使用 node_id
+            stuck_duration = None  # 停留时长（秒）
+            
+            if inst.current_node:
+                # 查找当前待办任务
+                current_task = s.exec(
+                    select(Task).where(
+                        Task.instance_id == inst.id,
+                        Task.node_id == inst.current_node,
+                        Task.status == "pending"
+                    )
+                ).first()
+                
+                # 获取节点名称
+                if tpl and tpl.definition:
+                    node = next((n for n in tpl.definition.get("nodes", []) if n.get("id") == inst.current_node), None)
+                    if node and node.get("meta", {}).get("name"):
+                        current_node_name = node.get("meta", {}).get("name")
+                
+                # 计算停留时长（从任务分配时间到现在）
+                if current_task and current_task.assigned_at:
+                    # 确保 assigned_at 有时区信息
+                    assigned_time = current_task.assigned_at
+                    if assigned_time.tzinfo is None:
+                        # 如果没有时区信息，假设是本地时区
+                        assigned_time = assigned_time.replace(tzinfo=tz)
+                    else:
+                        # 如果有 UTC 时区，转换为本地时区
+                        if assigned_time.tzinfo.utcoffset(assigned_time) == timedelta(0):
+                            assigned_time = assigned_time.replace(tzinfo=timezone.utc).astimezone(tz)
+                    
+                    delta = now - assigned_time
+                    stuck_duration = int(delta.total_seconds())
+            
+            # 获取发起人信息
+            starter = s.get(User, inst.started_by) if inst.started_by else None
+            
+            results.append({
+                "id": inst.id,
+                "template_id": inst.template_id,
+                "template_name": tpl.name if tpl else None,
+                "title": inst.data.get("title") if inst.data else None,
+                "status": inst.status,
+                "current_node": inst.current_node,
+                "current_node_name": current_node_name,
+                "current_assignee": current_task.assignee if current_task else None,
+                "stuck_duration": stuck_duration,  # 停留时长（秒）
+                "started_by": inst.started_by,
+                "started_by_name": starter.display_name or starter.username if starter else None,
+                "started_at": inst.started_at.isoformat() if inst.started_at else None,
+                "data": inst.data,
+            })
+        return results
+
 def get_instance_detail(instance_id: str, requester: str):
     with Session(engine) as s:
         inst = s.get(ProcessInstance, instance_id)
@@ -331,7 +403,7 @@ def get_dashboard_stats(username: str, role: str = "user", department: Optional[
     today = datetime.now(tz).date()
     view_scope = "self"
     target_department = None
-    if role == "admin":
+    if role in ("admin", "company_admin"):
         view_scope = "all"
     elif role == "dept_admin" and department:
         view_scope = "department"
