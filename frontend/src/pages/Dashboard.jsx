@@ -68,6 +68,8 @@ export default function Dashboard(){
     switch (role) {
       case 'admin':
         return { text: '系统管理员', color: '#f53f3f' };
+      case 'company_admin':
+        return { text: '公司管理员', color: '#f53f3f' };
       case 'dept_admin':
         return { text: '部门管理员', color: '#3370ff' };
       default:
