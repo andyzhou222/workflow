@@ -46,7 +46,11 @@ if DATABASE_URL:
     )
 else:
     # SQLite 连接（本地开发）
-engine = create_engine(f"sqlite:///{DB_FILE}", echo=False, connect_args={"check_same_thread": False})
+    engine = create_engine(
+        f"sqlite:///{DB_FILE}",
+        echo=False,
+        connect_args={"check_same_thread": False},
+    )
 
 def init_db():
     SQLModel.metadata.create_all(engine)
