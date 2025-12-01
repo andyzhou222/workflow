@@ -1,9 +1,27 @@
+from datetime import datetime, timezone, timedelta
 from sqlmodel import Session, select, create_engine
 from sqlalchemy import text, func
 from typing import Optional
 from .models import *
 from .utils import hash_password
 from .config import DATABASE_URL, DB_FILE
+
+LOCAL_TZ = timezone(timedelta(hours=8))
+IS_POSTGRES = DATABASE_URL is not None
+
+
+def to_local(dt: Optional[datetime]):
+    """将数据库中的时间转换为中国时区"""
+    if not dt:
+        return None
+    if dt.tzinfo:
+        try:
+            return dt.astimezone(LOCAL_TZ)
+        except Exception:
+            return dt
+    if IS_POSTGRES:
+        return dt.replace(tzinfo=timezone.utc).astimezone(LOCAL_TZ)
+    return dt.replace(tzinfo=LOCAL_TZ)
 
 # 支持 PostgreSQL 和 SQLite
 # 如果设置了 DATABASE_URL（PostgreSQL），使用 PostgreSQL
@@ -28,15 +46,14 @@ if DATABASE_URL:
     )
 else:
     # SQLite 连接（本地开发）
-    engine = create_engine(f"sqlite:///{DB_FILE}", echo=False, connect_args={"check_same_thread": False})
+engine = create_engine(f"sqlite:///{DB_FILE}", echo=False, connect_args={"check_same_thread": False})
 
 def init_db():
     SQLModel.metadata.create_all(engine)
     
     # 检查并添加新列（用于现有数据库的迁移）
     # 只对 SQLite 执行，PostgreSQL 会自动处理
-    is_postgres = DATABASE_URL is not None
-    if not is_postgres:
+    if not IS_POSTGRES:
         with Session(engine) as s:
             try:
                 # SQLite 使用 PRAGMA 检查列
@@ -347,9 +364,7 @@ def list_departments():
 
 def list_all_instances_for_monitoring():
     """列出所有流程实例供系统管理员监控，包括当前节点、负责人、停留时长"""
-    from datetime import datetime, timezone, timedelta
-    tz = timezone(timedelta(hours=8))
-    now = datetime.now(tz)
+    now = datetime.now(LOCAL_TZ)
     
     with Session(engine) as s:
         # 获取所有运行中的实例
@@ -365,6 +380,17 @@ def list_all_instances_for_monitoring():
             current_task = None
             current_node_name = inst.current_node  # 默认使用 node_id
             stuck_duration = None  # 停留时长（秒）
+            progress_percent = 0
+            
+            # 计算进度
+            total_nodes = 0
+            completed_nodes = 0
+            if tpl and tpl.definition:
+                total_nodes = len([n for n in tpl.definition.get("nodes", []) if n.get("type") not in ("start", "end")])
+                tasks = s.exec(select(Task).where(Task.instance_id == inst.id)).all()
+                completed_nodes = len([t for t in tasks if t.status != "pending"])
+                if total_nodes > 0:
+                    progress_percent = int(min(100, (completed_nodes / total_nodes) * 100))
             
             if inst.current_node:
                 # 查找当前待办任务
@@ -384,21 +410,14 @@ def list_all_instances_for_monitoring():
                 
                 # 计算停留时长（从任务分配时间到现在）
                 if current_task and current_task.assigned_at:
-                    # 确保 assigned_at 有时区信息
-                    assigned_time = current_task.assigned_at
-                    if assigned_time.tzinfo is None:
-                        # 如果没有时区信息，假设是本地时区
-                        assigned_time = assigned_time.replace(tzinfo=tz)
-                    else:
-                        # 如果有 UTC 时区，转换为本地时区
-                        if assigned_time.tzinfo.utcoffset(assigned_time) == timedelta(0):
-                            assigned_time = assigned_time.replace(tzinfo=timezone.utc).astimezone(tz)
-                    
-                    delta = now - assigned_time
-                    stuck_duration = int(delta.total_seconds())
+                    assigned_time_local = to_local(current_task.assigned_at)
+                    if assigned_time_local:
+                        delta = now - assigned_time_local
+                        stuck_duration = max(0, int(delta.total_seconds()))
             
             # 获取发起人信息
             starter = s.get(User, inst.started_by) if inst.started_by else None
+            started_at_local = to_local(inst.started_at)
             
             results.append({
                 "id": inst.id,
@@ -412,8 +431,9 @@ def list_all_instances_for_monitoring():
                 "stuck_duration": stuck_duration,  # 停留时长（秒）
                 "started_by": inst.started_by,
                 "started_by_name": starter.display_name or starter.username if starter else None,
-                "started_at": inst.started_at.isoformat() if inst.started_at else None,
+                "started_at": started_at_local.isoformat() if started_at_local else None,
                 "data": inst.data,
+                "progress_percent": progress_percent if inst.status != "approved" else 100,
             })
         return results
 

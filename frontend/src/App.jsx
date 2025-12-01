@@ -166,7 +166,7 @@ export default function App() {
             <span>📊 仪表盘</span>
           </NavLink>
           <NavLink to="/launch" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-            <span>📝 发起签审</span>
+            <span>📝 发起任务</span>
           </NavLink>
           <NavLink to="/tasks/todo" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
             <span>✅ 待办任务</span>

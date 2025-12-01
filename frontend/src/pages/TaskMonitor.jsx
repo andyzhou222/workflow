@@ -112,6 +112,19 @@ export default function TaskMonitor() {
                     {formatDuration(item.stuck_duration)}
                   </strong>
                 </div>
+                <div className="hint" style={{ marginBottom: 8 }}>
+                  进度：<strong style={{ color: 'var(--text-primary)' }}>{item.progress_percent ?? 0}%</strong>
+                </div>
+                <div style={{ height: 8, background: '#f0f0f0', borderRadius: 999, overflow: 'hidden', marginBottom: 4 }}>
+                  <div
+                    style={{
+                      width: `${Math.min(100, Math.max(0, item.progress_percent ?? 0))}%`,
+                      background: '#3370ff',
+                      height: '100%',
+                      transition: 'width 0.3s ease',
+                    }}
+                  ></div>
+                </div>
                 <div className="hint" style={{ marginBottom: 4 }}>
                   发起人：{item.started_by_name || item.started_by || '-'}
                 </div>
