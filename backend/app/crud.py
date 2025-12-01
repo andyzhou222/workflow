@@ -15,7 +15,17 @@ if DATABASE_URL:
     # 如果连接字符串是 postgres:// 开头，需要改为 postgresql://
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
-    engine = create_engine(db_url, echo=False, pool_pre_ping=True, pool_recycle=300)
+    # 使用连接池配置，支持 IPv4 网络
+    engine = create_engine(
+        db_url, 
+        echo=False, 
+        pool_pre_ping=True, 
+        pool_recycle=300,
+        connect_args={
+            "connect_timeout": 10,
+            "sslmode": "require"  # Supabase 需要 SSL
+        }
+    )
 else:
     # SQLite 连接（本地开发）
     engine = create_engine(f"sqlite:///{DB_FILE}", echo=False, connect_args={"check_same_thread": False})
@@ -319,7 +329,20 @@ def list_instances_by_user(username: str, status: Optional[str] = None):
 def list_departments():
     with Session(engine) as s:
         rows = s.exec(select(User.department).where(User.department.isnot(None))).all()
-        departments = sorted({row[0] for row in rows if row[0]})
+        departments_set = set()
+        for row in rows:
+            # 兼容 SQLite（返回元组）和 PostgreSQL（可能直接返回标量）
+            if isinstance(row, (list, tuple)):
+                value = row[0] if row else None
+            else:
+                value = row
+            if not value:
+                continue
+            # 去掉首尾空白，过滤空字符串
+            value_str = str(value).strip()
+            if value_str:
+                departments_set.add(value_str)
+        departments = sorted(departments_set)
         return departments
 
 def list_all_instances_for_monitoring():
