@@ -183,9 +183,9 @@ export default function TemplateDesigner(){
       </div>
       <div style={{display:'flex', gap: '20px', height: 'calc(100vh - 200px)'}}>
         <div style={{width: 240}} className="card">
-          <NodePanel onAdd={addNode}/>
+        <NodePanel onAdd={addNode}/>
           <div style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)'}}>
-            <div className="form-row">
+          <div className="form-row">
               <label>模板名称</label>
               <input 
                 className="input" 
@@ -193,7 +193,7 @@ export default function TemplateDesigner(){
                 onChange={e=>setName(e.target.value)}
                 placeholder="输入模板名称"
               />
-            </div>
+          </div>
             <div style={{display:'flex', flexDirection: 'column', gap: 8}}>
               <button 
                 className="btn small" 
@@ -215,29 +215,29 @@ export default function TemplateDesigner(){
               >
                 📋 导出 JSON
               </button>
-            </div>
           </div>
         </div>
+      </div>
 
         <div style={{flex:1, padding: 0, overflow: 'hidden'}} className="card">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onSelectionChange={onSelectionChange}
-            fitView
-            style={{width:'100%', height:'100%'}}
-          >
-            <MiniMap />
-            <Controls />
-            <Background />
-          </ReactFlow>
-        </div>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onSelectionChange={onSelectionChange}
+          fitView
+          style={{width:'100%', height:'100%'}}
+        >
+          <MiniMap />
+          <Controls />
+          <Background />
+        </ReactFlow>
+      </div>
 
         <div style={{width: 320}}>
-          <NodeEditor node={selectedNode} onChange={(n)=>updateNode(n)} />
+        <NodeEditor node={selectedNode} onChange={(n)=>updateNode(n)} />
         </div>
       </div>
     </div>

@@ -150,24 +150,21 @@ export default function Profile(){
         return `${avatar}?t=${Date.now()}`;
       }
 
-      // 后端返回的格式是 /api/uploads/avatars/xxx.jpg
-      // 需要转换为完整后端 URL
+      // 后端返回的格式通常是 /api/uploads/avatars/xxx.jpg
+      // 确保路径包含 /api 前缀
       let path = avatar;
-      // 如果路径以 /api 开头，去掉 /api，因为我们要拼接完整的后端域名
-      if (path.startsWith('/api')) {
-        path = path.replace(/^\/api/, '');
-      }
-      // 确保路径以 / 开头
-      if (!path.startsWith('/')) {
-        path = '/' + path;
+      if (!path.startsWith('/api')) {
+        if (path.startsWith('/')) {
+          path = `/api${path}`;
+        } else {
+          path = `/api/${path}`;
+        }
       }
 
-      // 如果有 API_ORIGIN，使用完整URL；否则使用 /api 前缀（通过前端代理）
       if (apiOrigin) {
         return `${apiOrigin}${path}?t=${Date.now()}`;
       } else {
-        // 如果没有配置 API_ORIGIN，使用 /api 前缀（通过 Vercel/Render 代理）
-        return `/api${path}?t=${Date.now()}`;
+        return `${path}?t=${Date.now()}`;
       }
     }
 
