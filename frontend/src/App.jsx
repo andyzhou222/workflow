@@ -12,6 +12,7 @@ import MyInstances from './pages/MyInstances';
 import InstanceDetail from './pages/InstanceDetail';
 import Profile from './pages/Profile';
 import UserManagement from './pages/UserManagement';
+import StandardDocs from './pages/StandardDocs';
 import api, { setToken } from './api';
 
 const API_BASE = (import.meta.env.VITE_API_BASE || '').trim();
@@ -112,7 +113,7 @@ export default function App() {
     );
   }
 
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'dept_admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'company_admin' || currentUser?.role === 'dept_admin';
 
   const logoSrc = logoOk ? '/logo.png' : '';
 
@@ -178,6 +179,9 @@ export default function App() {
           </NavLink>
           <NavLink to="/designer" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
             <span>🧩 流程设计器</span>
+          </NavLink>
+          <NavLink to="/standard-docs" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+            <span>📚 标准文档</span>
           </NavLink>
           {isAdmin && (
             <>
@@ -293,6 +297,7 @@ export default function App() {
           <Route path="/instances/:id" element={<InstanceDetail />} />
           <Route path="/templates" element={<TemplateList />} />
           <Route path="/designer" element={<TemplateDesigner />} />
+          <Route path="/standard-docs" element={<StandardDocs />} />
           <Route path="/users" element={isAdmin ? <UserManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

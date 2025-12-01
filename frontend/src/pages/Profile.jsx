@@ -238,7 +238,13 @@ export default function Profile(){
               </div>
             )}
             <div style={{fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px'}}>
-              {user?.role === 'admin' ? '管理员' : '普通用户'}
+              {user?.role === 'admin'
+                ? '系统管理员'
+                : user?.role === 'company_admin'
+                ? '公司管理员'
+                : user?.role === 'dept_admin'
+                ? '部门管理员'
+                : '普通用户'}
             </div>
           </div>
 
