@@ -393,6 +393,114 @@ def download_doc(doc_id: str, cur: models.User = Depends(auth.get_current_user))
         raise HTTPException(status_code=404, detail="文件不存在或已被删除")
     return FileResponse(file_path, filename=doc.title)
 
+
+@app.post("/api/standard-docs/upload")
+def upload_standard_doc(title: str = Form(...), file: UploadFile = File(...), cur: models.User = Depends(auth.get_current_user)):
+    """标准文档上传：所有登录用户可上传"""
+    try:
+        dest = storage.save_upload_file(file)
+        doc = crud.save_document(title, dest, cur.username)
+        # 标准文档用 status 标记为 'standard'
+        with Session(crud.engine) as s:
+            db_doc = s.get(models.Document, doc.id)
+            db_doc.status = "standard"
+            s.add(db_doc)
+            s.commit()
+            s.refresh(db_doc)
+        crud.write_audit(cur.username, "upload_standard_doc", {"doc_id": doc.id})
+        return {
+            "id": db_doc.id,
+            "title": db_doc.title,
+            "filename": db_doc.filename,
+            "uploaded_by": db_doc.uploaded_by,
+            "uploaded_at": db_doc.uploaded_at.isoformat() if db_doc.uploaded_at else None,
+        }
+    except Exception as e:
+        import traceback
+        print(f"Upload standard doc error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@app.get("/api/standard-docs")
+def list_standard_docs(cur: models.User = Depends(auth.get_current_user)):
+    """标准文档列表：所有登录用户可查看"""
+    with Session(crud.engine) as s:
+        docs = s.exec(
+            select(models.Document)
+            .where(models.Document.status == "standard")
+            .order_by(models.Document.uploaded_at.desc())
+        ).all()
+        return [
+            {
+                "id": d.id,
+                "title": d.title,
+                "filename": d.filename,
+                "uploaded_by": d.uploaded_by,
+                "uploaded_at": d.uploaded_at.isoformat() if d.uploaded_at else None,
+            }
+            for d in docs
+        ]
+
+
+@app.put("/api/standard-docs/{doc_id}")
+def update_standard_doc(doc_id: str, title: str = Form(...), cur: models.User = Depends(auth.get_current_user)):
+    """标准文档重命名：仅系统管理员和公司管理员"""
+    if cur.role not in ("admin", "company_admin"):
+        raise HTTPException(status_code=403, detail="admin only")
+    try:
+        with Session(crud.engine) as s:
+            doc = s.get(models.Document, doc_id)
+            if not doc or doc.status != "standard":
+                raise HTTPException(status_code=404, detail="not found")
+            doc.title = title
+            s.add(doc)
+            s.commit()
+            s.refresh(doc)
+        crud.write_audit(cur.username, "update_standard_doc", {"doc_id": doc_id})
+        return {
+            "id": doc.id,
+            "title": doc.title,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"Update standard doc error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@app.delete("/api/standard-docs/{doc_id}")
+def delete_standard_doc(doc_id: str, cur: models.User = Depends(auth.get_current_user)):
+    """标准文档删除：仅系统管理员和公司管理员"""
+    if cur.role not in ("admin", "company_admin"):
+        raise HTTPException(status_code=403, detail="admin only")
+    try:
+        with Session(crud.engine) as s:
+            doc = s.get(models.Document, doc_id)
+            if not doc or doc.status != "standard":
+                raise HTTPException(status_code=404, detail="not found")
+            file_path = doc.filename
+            if not os.path.isabs(file_path):
+                file_path = os.path.join(UPLOAD_FOLDER, file_path)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    print(f"Warning: failed to remove file {file_path}: {e}")
+            s.delete(doc)
+            s.commit()
+        crud.write_audit(cur.username, "delete_standard_doc", {"doc_id": doc_id})
+        return {"message": "deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"Delete standard doc error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 @app.get("/api/dashboard/stats")
 def dashboard_stats(cur: models.User = Depends(auth.get_current_user)):
     return crud.get_dashboard_stats(
@@ -498,6 +606,31 @@ def get_audit(cur: models.User = Depends(auth.get_current_user)):
     with Session(crud.engine) as s:
         logs = s.exec(select(models.AuditLog)).all()
         return logs
+
+
+@app.get("/api/hr/profiles")
+def list_hr_profiles(cur: models.User = Depends(auth.get_current_user)):
+    """人事档案：公司管理员查看所有，部门管理员只看本部门"""
+    if cur.role not in ("admin", "company_admin", "dept_admin"):
+        raise HTTPException(status_code=403, detail="permission denied")
+    with Session(crud.engine) as s:
+        query = select(models.User).order_by(models.User.created_at.desc())
+        if cur.role == "dept_admin" and cur.department:
+            query = query.where(models.User.department == cur.department)
+        users = s.exec(query).all()
+        return [
+            {
+                "id": u.id,
+                "username": u.username,
+                "display_name": u.display_name,
+                "department": u.department,
+                "title": u.title,
+                "role": u.role or "user",
+                "avatar": u.avatar,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+            }
+            for u in users
+        ]
 
 @app.get("/api/instances/monitor")
 def monitor_instances(cur: models.User = Depends(auth.get_current_user)):

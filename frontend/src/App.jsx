@@ -13,6 +13,8 @@ import InstanceDetail from './pages/InstanceDetail';
 import Profile from './pages/Profile';
 import UserManagement from './pages/UserManagement';
 import TaskMonitor from './pages/TaskMonitor';
+import HrArchive from './pages/HrArchive';
+import StandardDocs from './pages/StandardDocs';
 import api, { setToken } from './api';
 
 const API_BASE = (import.meta.env.VITE_API_BASE || '').trim();
@@ -115,6 +117,7 @@ export default function App() {
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'company_admin' || currentUser?.role === 'dept_admin';
   const isSystemAdmin = currentUser?.role === 'admin' || currentUser?.role === 'company_admin';
+  const isDeptAdmin = currentUser?.role === 'dept_admin';
 
   const logoSrc = logoOk ? '/logo.png' : '';
 
@@ -177,12 +180,20 @@ export default function App() {
           <NavLink to="/designer" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
             <span>🧩 流程设计器</span>
           </NavLink>
+          <NavLink to="/standard-docs" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+            <span>📚 标准文档库</span>
+          </NavLink>
           {isAdmin && (
             <>
               <div className="nav-section-title" style={{ marginTop: '12px', marginBottom: '8px' }}>系统管理</div>
               <NavLink to="/users" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
                 <span>👥 用户管理</span>
               </NavLink>
+              {(isSystemAdmin || isDeptAdmin) && (
+                <NavLink to="/hr" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+                  <span>📇 人事档案</span>
+                </NavLink>
+              )}
             </>
           )}
           {isSystemAdmin && (
@@ -296,7 +307,9 @@ export default function App() {
           <Route path="/instances/:id" element={<InstanceDetail />} />
           <Route path="/templates" element={<TemplateList />} />
           <Route path="/designer" element={<TemplateDesigner />} />
+          <Route path="/standard-docs" element={<StandardDocs />} />
           <Route path="/users" element={isAdmin ? <UserManagement /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/hr" element={(isSystemAdmin || isDeptAdmin) ? <HrArchive /> : <Navigate to="/dashboard" replace />} />
           <Route path="/monitor" element={isSystemAdmin ? <TaskMonitor /> : <Navigate to="/dashboard" replace />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
