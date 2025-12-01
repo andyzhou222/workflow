@@ -3,33 +3,78 @@ from sqlalchemy import text, func
 from typing import Optional
 from .models import *
 from .utils import hash_password
-from .config import DB_FILE
+from .config import DATABASE_URL, DB_FILE
 
-engine = create_engine(f"sqlite:///{DB_FILE}", echo=False, connect_args={"check_same_thread": False})
+# 支持 PostgreSQL 和 SQLite
+# 如果设置了 DATABASE_URL（PostgreSQL），使用 PostgreSQL
+# 否则使用 SQLite（本地开发）
+if DATABASE_URL:
+    # PostgreSQL 连接
+    # 处理 Render 等平台的连接字符串格式
+    db_url = DATABASE_URL
+    # 如果连接字符串是 postgres:// 开头，需要改为 postgresql://
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    engine = create_engine(db_url, echo=False, pool_pre_ping=True, pool_recycle=300)
+else:
+    # SQLite 连接（本地开发）
+    engine = create_engine(f"sqlite:///{DB_FILE}", echo=False, connect_args={"check_same_thread": False})
 
 def init_db():
     SQLModel.metadata.create_all(engine)
     
     # 检查并添加新列（用于现有数据库的迁移）
-    with Session(engine) as s:
-        try:
-            # 检查 title 列是否存在
-            result = s.exec(text("PRAGMA table_info(user)"))
-            columns = [row[1] for row in result]
-            
-            if 'title' not in columns:
-                s.exec(text("ALTER TABLE user ADD COLUMN title TEXT"))
-                s.commit()
-                print("Added 'title' column to user table")
-            
-            if 'avatar' not in columns:
-                s.exec(text("ALTER TABLE user ADD COLUMN avatar TEXT"))
-                s.commit()
-                print("Added 'avatar' column to user table")
-        except Exception as e:
-            print(f"Migration check error (may be normal for new DB): {e}")
-            s.rollback()
+    # 只对 SQLite 执行，PostgreSQL 会自动处理
+    is_postgres = DATABASE_URL is not None
+    if not is_postgres:
+        with Session(engine) as s:
+            try:
+                # SQLite 使用 PRAGMA 检查列
+                result = s.exec(text("PRAGMA table_info(user)"))
+                columns = [row[1] for row in result]
+                
+                if 'title' not in columns:
+                    s.exec(text("ALTER TABLE user ADD COLUMN title TEXT"))
+                    s.commit()
+                    print("Added 'title' column to user table")
+                
+                if 'avatar' not in columns:
+                    s.exec(text("ALTER TABLE user ADD COLUMN avatar TEXT"))
+                    s.commit()
+                    print("Added 'avatar' column to user table")
+            except Exception as e:
+                print(f"Migration check error (may be normal for new DB): {e}")
+                s.rollback()
+    else:
+        # PostgreSQL: 使用信息模式检查列
+        with Session(engine) as s:
+            try:
+                # 检查 title 列
+                result = s.exec(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='user' AND column_name='title'
+                """))
+                if not result.first():
+                    s.exec(text("ALTER TABLE \"user\" ADD COLUMN title TEXT"))
+                    s.commit()
+                    print("Added 'title' column to user table")
+                
+                # 检查 avatar 列
+                result = s.exec(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='user' AND column_name='avatar'
+                """))
+                if not result.first():
+                    s.exec(text("ALTER TABLE \"user\" ADD COLUMN avatar TEXT"))
+                    s.commit()
+                    print("Added 'avatar' column to user table")
+            except Exception as e:
+                print(f"PostgreSQL migration check error (may be normal for new DB): {e}")
+                s.rollback()
     
+    # 创建默认管理员账户
     with Session(engine) as s:
         q = s.exec(select(User).where(User.username == "admin")).first()
         if not q:
