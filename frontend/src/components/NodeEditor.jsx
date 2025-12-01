@@ -63,7 +63,7 @@ export default function NodeEditor({ node, onChange }) {
       </div>
 
       {node.data?.label?.toLowerCase().includes('approve') && (
-          <div className="form-row">
+        <div className="form-row">
           <label>审批人</label>
           <input 
             className="input" 
@@ -71,7 +71,7 @@ export default function NodeEditor({ node, onChange }) {
             onChange={e=>setLocal({...local, assignee:e.target.value})}
             placeholder="输入审批人用户名"
           />
-          </div>
+        </div>
       )}
 
       <button 

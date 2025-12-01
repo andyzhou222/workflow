@@ -79,7 +79,6 @@ export default function UserManagement() {
   const getRoleText = (role) => {
     switch (role) {
       case 'admin': return '系统管理员';
-      case 'company_admin': return '公司管理员';
       case 'dept_admin': return '部门管理员';
       case 'user': return '普通用户';
       default: return role;
@@ -89,7 +88,6 @@ export default function UserManagement() {
   const getRoleColor = (role) => {
     switch (role) {
       case 'admin': return '#f53f3f';
-      case 'company_admin': return '#f53f3f';
       case 'dept_admin': return '#3370ff';
       case 'user': return 'var(--text-secondary)';
       default: return 'var(--text-secondary)';
@@ -190,7 +188,6 @@ export default function UserManagement() {
                           <option value="user">普通用户</option>
                           <option value="dept_admin">部门管理员</option>
                           <option value="admin">系统管理员</option>
-                          <option value="company_admin">公司管理员</option>
                         </select>
                       </td>
                       <td style={{ padding: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>

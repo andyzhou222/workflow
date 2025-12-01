@@ -73,7 +73,7 @@ export default function TemplateList(){
         </div>
       ) : (
         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px'}}>
-            {list.map(t => (
+          {list.map(t => (
             <div key={t.id} className="card">
               <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px'}}>
                 <div style={{flex: 1, cursor: 'pointer'}} onClick={()=>nav('/designer', { state: { templateId: t.id } })}>
@@ -81,7 +81,7 @@ export default function TemplateList(){
                     {t.name}
                   </h3>
                   <p className="hint" style={{fontSize: '12px'}}>ID: {t.id}</p>
-                  </div>
+                </div>
                 <div style={{display: 'flex', gap: 8}}>
                   <button 
                     className="btn small secondary"
@@ -102,9 +102,9 @@ export default function TemplateList(){
               {t.created_by && (
                 <div style={{paddingTop: '12px', borderTop: '1px solid var(--border)', fontSize: '12px', color: 'var(--text-tertiary)'}}>
                   创建者: {t.created_by}
-          </div>
+                </div>
               )}
-        </div>
+            </div>
           ))}
         </div>
       )}

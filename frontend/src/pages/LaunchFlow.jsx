@@ -166,7 +166,7 @@ export default function LaunchFlow() {
         payload.old_instance_id = oldInstanceId;
       }
       const r = await api.post('/instances/start', payload);
-      setSuccess('任务发起成功！');
+      setSuccess('流程发起成功！');
       setForm(initialForm);
       setFiles([]);
       setOldInstanceId(null);
@@ -183,8 +183,8 @@ export default function LaunchFlow() {
   return (
     <div>
       <div className="page-header">
-        <h1>发起任务</h1>
-        <p>选择流程模板并提交内容进行处理</p>
+        <h1>发起签审</h1>
+        <p>选择流程模板并提交内容进行签审</p>
       </div>
 
       {error && (
@@ -373,7 +373,7 @@ export default function LaunchFlow() {
               className="btn"
               disabled={submitting || loading || !templates.length}
             >
-              {submitting ? '提交中...' : '提交任务'}
+              {submitting ? '提交中...' : '提交签审'}
             </button>
             <button
               type="button"

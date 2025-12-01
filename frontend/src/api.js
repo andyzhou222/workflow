@@ -1,18 +1,10 @@
 import axios from 'axios';
 
 // Render 环境变量：必须使用你设置的 VITE_API_BASE_URL
-let BASE =
+const BASE =
   import.meta.env.VITE_API_BASE_URL?.trim() ||
   import.meta.env.VITE_API_BASE?.trim() ||
   '/api'; // fallback（本地代理时用）
-
-// 确保 BASE 以 /api 结尾（如果是完整 URL）
-if (BASE && !BASE.endsWith('/api') && !BASE.endsWith('/api/')) {
-  // 如果是完整 URL（http:// 或 https://），添加 /api
-  if (BASE.startsWith('http://') || BASE.startsWith('https://')) {
-    BASE = BASE.replace(/\/$/, '') + '/api';
-  }
-}
 
 console.log("当前使用后端 API:", BASE);
 

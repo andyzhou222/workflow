@@ -42,7 +42,7 @@ export default function Login(){
         <h2>欢迎回来</h2>
         <p className="subtitle">登录以继续使用工作流平台</p>
         <form onSubmit={doLogin}>
-      <div className="form-row">
+          <div className="form-row">
             <label>用户名</label>
             <input
               className="input"
@@ -52,8 +52,8 @@ export default function Login(){
               required
               disabled={loading}
             />
-      </div>
-      <div className="form-row">
+          </div>
+          <div className="form-row">
             <label>密码</label>
             <input
               type="password"
@@ -93,7 +93,7 @@ export default function Login(){
             <Link to="/register" style={{color: 'var(--primary)'}}>
               注册新账户
             </Link>
-      </div>
+          </div>
         </form>
       </div>
     </div>
