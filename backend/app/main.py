@@ -30,7 +30,7 @@ app.add_middleware(
 # init db and default admin
 # 延迟初始化，避免启动时连接失败导致服务无法启动
 try:
-crud.init_db()
+    crud.init_db()
 except Exception as e:
     print(f"Warning: Database initialization failed: {e}")
     print("Service will continue to start, but database operations may fail.")
