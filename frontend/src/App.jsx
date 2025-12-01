@@ -12,6 +12,7 @@ import MyInstances from './pages/MyInstances';
 import InstanceDetail from './pages/InstanceDetail';
 import Profile from './pages/Profile';
 import UserManagement from './pages/UserManagement';
+import TaskMonitor from './pages/TaskMonitor';
 import api, { setToken } from './api';
 
 const API_BASE = (import.meta.env.VITE_API_BASE || '').trim();
@@ -112,7 +113,8 @@ export default function App() {
     );
   }
 
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'dept_admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'company_admin' || currentUser?.role === 'dept_admin';
+  const isSystemAdmin = currentUser?.role === 'admin' || currentUser?.role === 'company_admin';
 
   const logoSrc = logoOk ? '/logo.png' : '';
 
@@ -186,6 +188,11 @@ export default function App() {
                 <span>👥 用户管理</span>
               </NavLink>
             </>
+          )}
+          {isSystemAdmin && (
+            <NavLink to="/monitor" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+              <span>📊 任务监控</span>
+            </NavLink>
           )}
         </nav>
 
@@ -294,6 +301,7 @@ export default function App() {
           <Route path="/templates" element={<TemplateList />} />
           <Route path="/designer" element={<TemplateDesigner />} />
           <Route path="/users" element={isAdmin ? <UserManagement /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/monitor" element={isSystemAdmin ? <TaskMonitor /> : <Navigate to="/dashboard" replace />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -1,47 +1,45 @@
 import axios from 'axios';
 
-const BASE = import.meta.env.VITE_API_BASE || '/api';
-const api = axios.create({ baseURL: BASE, timeout: 20000 });
+// Render 环境变量：必须使用你设置的 VITE_API_BASE_URL
+const BASE =
+  import.meta.env.VITE_API_BASE_URL?.trim() ||
+  import.meta.env.VITE_API_BASE?.trim() ||
+  '/api'; // fallback（本地代理时用）
 
-// 添加请求拦截器
+console.log("当前使用后端 API:", BASE);
+
+const api = axios.create({
+  baseURL: BASE,
+  timeout: 20000
+});
+
+// 请求拦截器
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
-      // 确保 token 格式正确
-      const cleanToken = token.trim();
-      config.headers.Authorization = `Bearer ${cleanToken}`;
-    }
-    // 调试：打印请求信息
-    if (process.env.NODE_ENV === 'development') {
-      console.log('API Request:', config.method?.toUpperCase(), config.url, {
-        hasToken: !!token,
-        headers: config.headers
-      });
+      config.headers.Authorization = `Bearer ${token.trim()}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// 添加响应拦截器处理 token 过期
+// 响应拦截器（处理 token 失效）
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // 排除登录、注册、重置密码接口的 401 错误
       const url = error.config?.url || '';
-      if (!url.includes('/auth/login') && 
-          !url.includes('/auth/register') && 
-          !url.includes('/auth/reset-password')) {
-        // Token 无效或过期，清除并跳转到登录页
+      if (
+        !url.includes('/auth/login') &&
+        !url.includes('/auth/register') &&
+        !url.includes('/auth/reset-password')
+      ) {
         localStorage.removeItem('token');
         delete api.defaults.headers.common['Authorization'];
-        // 使用 React Router 的导航而不是 window.location，避免页面刷新
+
         if (!['/login', '/register', '/forgot-password'].includes(window.location.pathname)) {
-          // 触发自定义事件，让 App 组件处理跳转
           window.dispatchEvent(new CustomEvent('auth-failed'));
         }
       }
