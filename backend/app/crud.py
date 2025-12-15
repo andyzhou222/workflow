@@ -6,7 +6,7 @@ from .models import *
 from .utils import hash_password
 from .config import DATABASE_URL, DB_FILE
 
-LOCAL_TZ = datetime.now().astimezone().tzinfo
+LOCAL_TZ = timezone(timedelta(hours=8))
 IS_POSTGRES = DATABASE_URL is not None
 
 def iso_local(dt: Optional[datetime]):
@@ -15,16 +15,16 @@ def iso_local(dt: Optional[datetime]):
 
 
 def to_local(dt: Optional[datetime]):
-    """将数据库中的时间转换为本地时区；若无 tz 信息则直接返回原值。"""
+    """将数据库中的时间转换为东八区；若无 tz 信息则按 UTC 处理。"""
     if not dt:
         return None
     if dt.tzinfo:
         try:
-            return dt.astimezone(LOCAL_TZ) if LOCAL_TZ else dt
+            return dt.astimezone(LOCAL_TZ)
         except Exception:
             return dt
-    # 无 tz 信息，直接返回，避免误加偏移
-    return dt
+    # 无 tz 信息，视为 UTC 再转东八区
+    return dt.replace(tzinfo=timezone.utc).astimezone(LOCAL_TZ)
 
 # 支持 PostgreSQL 和 SQLite
 # 如果设置了 DATABASE_URL（PostgreSQL），使用 PostgreSQL
@@ -374,7 +374,13 @@ def create_module(name: str, description: str, creator: str):
     with Session(engine) as s:
         m = Module(name=name, description=description, created_by=creator)
         s.add(m); s.commit(); s.refresh(m)
-        return m
+        return {
+            "id": m.id,
+            "name": m.name,
+            "description": m.description,
+            "created_by": m.created_by,
+            "created_at": iso_local(m.created_at)
+        }
 
 def update_module(module_id: str, name: str = None, description: str = None):
     with Session(engine) as s:
@@ -386,7 +392,13 @@ def update_module(module_id: str, name: str = None, description: str = None):
         if description is not None:
             m.description = description
         s.add(m); s.commit(); s.refresh(m)
-        return m
+        return {
+            "id": m.id,
+            "name": m.name,
+            "description": m.description,
+            "created_by": m.created_by,
+            "created_at": iso_local(m.created_at)
+        }
 
 def delete_module(module_id: str):
     with Session(engine) as s:
@@ -400,7 +412,17 @@ def list_modules(role: str, username: str):
     if role not in ("admin", "company_admin", "dept_admin"):
         return []
     with Session(engine) as s:
-        return s.exec(select(Module).order_by(Module.created_at.desc())).all()
+        modules = s.exec(select(Module).order_by(Module.created_at.desc())).all()
+        return [
+            {
+                "id": m.id,
+                "name": m.name,
+                "description": m.description,
+                "created_by": m.created_by,
+                "created_at": iso_local(m.created_at)
+            }
+            for m in modules
+        ]
 
 
 # --------------------------
@@ -433,14 +455,34 @@ def create_cycle(name: str, start_date, end_date, goal: str, creator: str):
     with Session(engine) as s:
         c = Cycle(name=name, start_date=start_date, end_date=end_date, goal=goal, created_by=creator)
         s.add(c); s.commit(); s.refresh(c)
-        return c
+        return {
+            "id": c.id,
+            "name": c.name,
+            "start_date": c.start_date.isoformat() if c.start_date else None,
+            "end_date": c.end_date.isoformat() if c.end_date else None,
+            "goal": c.goal,
+            "created_by": c.created_by,
+            "created_at": iso_local(c.created_at),
+        }
 
 def list_cycles(role: str, username: str):
     """管理员/公司管理员/部门管理员可见"""
     if role not in ("admin", "company_admin", "dept_admin"):
         return []
     with Session(engine) as s:
-        return s.exec(select(Cycle).order_by(Cycle.start_date.desc())).all()
+        cycles = s.exec(select(Cycle).order_by(Cycle.start_date.desc())).all()
+        return [
+            {
+                "id": c.id,
+                "name": c.name,
+                "start_date": c.start_date.isoformat() if c.start_date else None,
+                "end_date": c.end_date.isoformat() if c.end_date else None,
+                "goal": c.goal,
+                "created_by": c.created_by,
+                "created_at": iso_local(c.created_at),
+            }
+            for c in cycles
+        ]
 
 def assign_task_to_cycle(cycle_id: str, task_id: str):
     with Session(engine) as s:
@@ -479,7 +521,7 @@ def get_cycle_detail(cycle_id: str):
             "end_date": c.end_date.isoformat() if c.end_date else None,
             "goal": c.goal,
             "created_by": c.created_by,
-            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "created_at": iso_local(c.created_at),
             "tasks": [
                 {
                     "id": t.id,
