@@ -245,8 +245,6 @@ export default function LaunchFlow() {
           </div>
 
           <div className="form-row">
-            <label>期望完成时间</label>
-          <div className="form-row">
             <label>紧急程度</label>
             <select
               className="input"
@@ -260,6 +258,8 @@ export default function LaunchFlow() {
             </select>
           </div>
 
+          <div className="form-row">
+            <label>期望完成时间</label>
             <input
               type="date"
               className="input"
