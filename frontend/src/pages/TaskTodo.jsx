@@ -13,6 +13,7 @@ export default function TaskTodo() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [instanceDetail, setInstanceDetail] = useState(null);
   const [opinion, setOpinion] = useState('');
+  const [keyword, setKeyword] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -98,17 +99,36 @@ export default function TaskTodo() {
     }
   }
 
+  const filteredTasks = tasks.filter(task => {
+    if (!keyword.trim()) return true;
+    const kw = keyword.trim().toLowerCase();
+    const title = (task.data?.title || '').toLowerCase();
+    const startedBy = (task.instance?.started_by || '').toLowerCase();
+    return title.includes(kw) || startedBy.includes(kw);
+  });
+
   const renderTaskCard = (task) => (
-    <div key={task.id} className="card" style={{ marginBottom: 12, cursor: 'pointer' }} onClick={() => openTask(task)}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <strong>{task.data?.title || '未命名流程'}</strong>
-          <div className="hint">当前节点：{task.node_name || task.node_id || '-'}</div>
-          <div className="hint">当前处理人：{task.assignee || '-'}</div>
+    <div
+      key={task.id}
+      className="card kanban-card"
+      style={{ cursor: 'pointer', boxShadow: 'none', border: '1px solid var(--border)', marginBottom: 8 }}
+      onClick={() => openTask(task)}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {task.data?.title || '未命名流程'}
+          </div>
+          <div className="hint" style={{ fontSize: 12 }}>
+            节点：{task.node_name || task.node_id || '-'}
+          </div>
         </div>
-        <div className="hint">
+        <span className="hint" style={{ fontSize: 12, marginLeft: 8 }}>
           提交人：{task.instance?.started_by || '-'}
-        </div>
+        </span>
+      </div>
+      <div className="hint" style={{ fontSize: 12 }}>
+        当前处理人：{task.assignee || '-'}
       </div>
     </div>
   );
@@ -116,8 +136,32 @@ export default function TaskTodo() {
   return (
     <div>
       <div className="page-header">
-        <h1>待办任务</h1>
-        <p>处理分配给您的流程任务</p>
+        <div className="flex-between">
+          <div>
+            <h1>任务</h1>
+            <p>以看板方式处理分配给您的流程任务</p>
+          </div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <input
+              className="input"
+              style={{ width: 220 }}
+              placeholder="搜索标题或提交人"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+            />
+            <button
+              className="btn secondary small"
+              type="button"
+              onClick={() => {
+                setKeyword('');
+                loadTasks();
+                loadRejected();
+              }}
+            >
+              重置
+            </button>
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -127,49 +171,77 @@ export default function TaskTodo() {
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginBottom: 20 }}>
-        <div className="card">
-          <h3 style={{marginBottom:12}}>待办任务</h3>
+        <div className="card" style={{ padding: 16 }}>
+          <h3 style={{ marginBottom: 12 }}>任务看板</h3>
           {loading ? (
             <div className="loading">加载中...</div>
-          ) : tasks.length === 0 ? (
-            <div className="empty-state" style={{padding:'20px 0'}}>
+          ) : filteredTasks.length === 0 ? (
+            <div className="empty-state" style={{ padding: '20px 0' }}>
               <div className="empty-state-icon">🎉</div>
               <h3 style={{ marginBottom: 8, color: 'var(--text-primary)' }}>暂无待办任务</h3>
               <p className="hint">当前没有需要您处理的流程</p>
             </div>
           ) : (
-            tasks.map(renderTaskCard)
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr',
+                gap: 12,
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span className="hint">待处理</span>
+                  <span className="hint">{filteredTasks.length} 个任务</span>
+                </div>
+                <div
+                  style={{
+                    borderRadius: 8,
+                    background: '#f9fafb',
+                    padding: 8,
+                    minHeight: 80,
+                    border: '1px dashed var(--border)',
+                  }}
+                >
+                  {filteredTasks.map(renderTaskCard)}
+                </div>
+              </div>
+            </div>
           )}
         </div>
-        <div className="card">
-          <h3 style={{marginBottom:12}}>驳回通知</h3>
+        <div className="card" style={{ padding: 16 }}>
+          <h3 style={{ marginBottom: 12 }}>驳回通知</h3>
           {loadingRejected ? (
             <div className="hint">加载中...</div>
           ) : rejectedList.length === 0 ? (
-            <div className="empty-state" style={{padding:'20px 0'}}>
+            <div className="empty-state" style={{ padding: '20px 0' }}>
               <div className="empty-state-icon">📬</div>
               <p className="hint">暂无驳回流程</p>
             </div>
           ) : (
             rejectedList.map(item => (
-              <div key={item.id} className="card" style={{ marginBottom: 8, boxShadow:'none', border:'1px solid var(--border)' }}>
+              <div key={item.id} className="card" style={{ marginBottom: 8, boxShadow: 'none', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <strong>{item.title || item.template_name || '未命名流程'}</strong>
                   <span style={{ color: '#f97316', fontWeight: 600 }}>已驳回</span>
                 </div>
                 <div className="hint" style={{ marginBottom: 6 }}>驳回时间：{item.ended_at ? new Date(item.ended_at).toLocaleString('zh-CN') : '-'}</div>
                 <div className="hint" style={{ marginBottom: 6 }}>当前节点：{item.current_node || '-'}</div>
-                <div style={{display:'flex', gap:8}}>
+                <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     className="btn secondary"
                     type="button"
-                    onClick={()=>navigate(`/instances/${item.id}`)}
-                  >查看详情</button>
+                    onClick={() => navigate(`/instances/${item.id}`)}
+                  >
+                    查看详情
+                  </button>
                   <button
                     className="btn"
                     type="button"
-                    onClick={()=>navigate('/launch', { state: { prefill: { template_id: item.template_id, data: item.data }, oldInstanceId: item.id } })}
-                  >重新编辑</button>
+                    onClick={() => navigate('/launch', { state: { prefill: { template_id: item.template_id, data: item.data }, oldInstanceId: item.id } })}
+                  >
+                    重新编辑
+                  </button>
                 </div>
               </div>
             ))
