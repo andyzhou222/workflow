@@ -8,9 +8,8 @@ def gen_uuid():
     return str(uuid.uuid4())
 
 def local_now():
-    """返回中国时区 (UTC+8) 的当前时间"""
-    tz = timezone(timedelta(hours=8))
-    return datetime.now(tz)
+    """返回系统本地时间"""
+    return datetime.now()
 
 class User(SQLModel, table=True):
     id: Optional[str] = Field(default_factory=gen_uuid, primary_key=True)

@@ -6,22 +6,22 @@ from .models import *
 from .utils import hash_password
 from .config import DATABASE_URL, DB_FILE
 
-LOCAL_TZ = timezone(timedelta(hours=8))
+LOCAL_TZ = datetime.now().astimezone().tzinfo
 IS_POSTGRES = DATABASE_URL is not None
 
 
 def to_local(dt: Optional[datetime]):
-    """将数据库中的时间转换为中国时区"""
+    """将数据库中的时间转换为系统本地时区"""
     if not dt:
         return None
     if dt.tzinfo:
         try:
-            return dt.astimezone(LOCAL_TZ)
+            return dt.astimezone(LOCAL_TZ) if LOCAL_TZ else dt.astimezone()
         except Exception:
             return dt
-    if IS_POSTGRES:
+    if IS_POSTGRES and LOCAL_TZ:
         return dt.replace(tzinfo=timezone.utc).astimezone(LOCAL_TZ)
-    return dt.replace(tzinfo=LOCAL_TZ)
+    return dt
 
 # 支持 PostgreSQL 和 SQLite
 # 如果设置了 DATABASE_URL（PostgreSQL），使用 PostgreSQL
@@ -161,8 +161,7 @@ def get_template(tid: str):
 def create_instance(template_id: str, data: dict, started_by: str, old_instance_id: Optional[str] = None):
     from datetime import datetime, timezone, timedelta
     # 使用中国时区 (UTC+8)
-    tz = timezone(timedelta(hours=8))
-    local_now = datetime.now(tz)
+    local_now = datetime.now().astimezone()
     
     with Session(engine, expire_on_commit=False) as s:
         # 如果是重新提交，将旧实例的相关任务标记为已完成，并更新实例状态
@@ -286,8 +285,7 @@ def list_all_tasks_admin():
 def complete_task(task_id: str, username: str, decision: str, opinion: str = None):
     from datetime import datetime, timezone, timedelta
     # 使用中国时区 (UTC+8)
-    tz = timezone(timedelta(hours=8))
-    local_now = datetime.now(tz)
+    local_now = datetime.now().astimezone()
     with Session(engine) as s:
         task = s.get(Task, task_id)
         if not task:
@@ -581,7 +579,7 @@ def list_departments():
 
 def list_all_instances_for_monitoring():
     """列出所有流程实例供系统管理员监控，包括当前节点、负责人、停留时长"""
-    now = datetime.now(LOCAL_TZ)
+    now = datetime.now().astimezone()
     
     with Session(engine) as s:
         # 获取所有运行中的实例
