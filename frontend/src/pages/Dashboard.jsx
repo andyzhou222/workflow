@@ -68,6 +68,8 @@ export default function Dashboard(){
     switch (role) {
       case 'admin':
         return { text: '系统管理员', color: '#f53f3f' };
+      case 'company_admin':
+        return { text: '公司管理员', color: '#f97316' };
       case 'dept_admin':
         return { text: '部门管理员', color: '#3370ff' };
       default:
@@ -199,6 +201,11 @@ export default function Dashboard(){
               }}>
                 {(stats.user_summary || []).map(user => {
                   const roleInfo = renderRoleTag(user.role);
+                  const total = user.total_pending || 0;
+                  const overdue = user.overdue_tasks || 0;
+                  const today = user.today_tasks || 0;
+                  const future = Math.max(total - overdue - today, 0);
+                  const safeTotal = total || 1; // 避免除以 0
                   return (
                     <div key={user.username} className="card" style={{border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)'}}>
                       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px'}}>
@@ -247,6 +254,57 @@ export default function Dashboard(){
                           <div style={{fontWeight:600, fontSize:'18px', color: user.overdue_tasks ? '#f53f3f' : 'var(--text-secondary)'}}>{user.overdue_tasks || 0}</div>
                         </div>
                       </div>
+                      {/* 简易任务时间轴：按超时 / 今日 / 未来 分段显示 */}
+                      {total > 0 && (
+                        <div style={{ marginTop: 10 }}>
+                          <div className="hint" style={{ fontSize: 12, marginBottom: 4 }}>任务时间分布</div>
+                          <div
+                            style={{
+                              height: 8,
+                              borderRadius: 999,
+                              overflow: 'hidden',
+                              background: '#e5e6eb',
+                              display: 'flex',
+                            }}
+                          >
+                            {overdue > 0 && (
+                              <div
+                                style={{
+                                  width: `${(overdue / safeTotal) * 100}%`,
+                                  background: '#f53f3f',
+                                }}
+                              />
+                            )}
+                            {today > 0 && (
+                              <div
+                                style={{
+                                  width: `${(today / safeTotal) * 100}%`,
+                                  background: '#f97316',
+                                }}
+                              />
+                            )}
+                            {future > 0 && (
+                              <div
+                                style={{
+                                  width: `${(future / safeTotal) * 100}%`,
+                                  background: '#22c55e',
+                                }}
+                              />
+                            )}
+                          </div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              marginTop: 4,
+                            }}
+                          >
+                            <span className="hint" style={{ fontSize: 11 }}>已超时</span>
+                            <span className="hint" style={{ fontSize: 11 }}>今日截止</span>
+                            <span className="hint" style={{ fontSize: 11 }}>未来到期</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
