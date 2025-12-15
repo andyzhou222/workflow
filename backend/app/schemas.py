@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, Dict, Any, List
+from datetime import date
 
 class UserCreate(BaseModel):
     username: str
@@ -70,3 +71,35 @@ class TaskHistory(BaseModel):
 class InstanceDetail(InstanceSummary):
     template_definition: Optional[Dict[str, Any]] = None
     history: List[TaskHistory] = []
+
+
+# --- Task 元数据 ---
+class TaskMetaUpdate(BaseModel):
+    priority: Optional[str] = None  # 低/中/高/紧急（中文）
+    labels: Optional[List[str]] = None
+    module_id: Optional[str] = None
+    estimate_hours: Optional[float] = None
+    due_date: Optional[date] = None
+
+
+# --- 模块 ---
+class ModuleCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
+# --- 迭代 ---
+class CycleCreate(BaseModel):
+    name: str
+    start_date: date
+    end_date: date
+    goal: Optional[str] = None
+
+class CycleTaskAssign(BaseModel):
+    task_id: str
+
+
+# --- 保存视图 ---
+class SavedViewCreate(BaseModel):
+    name: str
+    filters: Dict[str, Any] = {}

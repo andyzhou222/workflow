@@ -1,5 +1,5 @@
-from typing import Optional, Dict, Any
-from datetime import datetime, timezone, timedelta
+from typing import Optional, Dict, Any, List
+from datetime import datetime, timezone, timedelta, date
 from sqlmodel import SQLModel, Field
 from sqlalchemy import JSON
 import uuid
@@ -55,6 +55,11 @@ class Task(SQLModel, table=True):
     opinion: Optional[str] = None
     assigned_at: datetime = Field(default_factory=local_now)
     finished_at: Optional[datetime] = None
+    priority: Optional[str] = None  # 优先级：低/中/高/紧急
+    labels: List[str] = Field(default_factory=list, sa_type=JSON)  # 标签
+    module_id: Optional[str] = None  # 关联模块
+    estimate_hours: Optional[float] = None  # 预估工时
+    due_date: Optional[date] = None  # 截止日期
 
 class Document(SQLModel, table=True):
     id: Optional[str] = Field(default_factory=gen_uuid, primary_key=True)
@@ -71,3 +76,34 @@ class AuditLog(SQLModel, table=True):
     action: str = ""
     detail: Dict[str, Any] = Field(default_factory=dict, sa_type=JSON)
     at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Module(SQLModel, table=True):
+    id: Optional[str] = Field(default_factory=gen_uuid, primary_key=True)
+    name: str
+    description: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=local_now)
+
+
+class Cycle(SQLModel, table=True):
+    id: Optional[str] = Field(default_factory=gen_uuid, primary_key=True)
+    name: str
+    start_date: date
+    end_date: date
+    goal: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: datetime = Field(default_factory=local_now)
+
+
+class CycleTask(SQLModel, table=True):
+    cycle_id: str = Field(primary_key=True)
+    task_id: str = Field(primary_key=True)
+
+
+class SavedView(SQLModel, table=True):
+    id: Optional[str] = Field(default_factory=gen_uuid, primary_key=True)
+    name: str
+    owner: str  # username
+    filters: Dict[str, Any] = Field(default_factory=dict, sa_type=JSON)
+    created_at: datetime = Field(default_factory=local_now)

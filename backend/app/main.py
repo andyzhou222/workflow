@@ -501,6 +501,112 @@ def delete_standard_doc(doc_id: str, cur: models.User = Depends(auth.get_current
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+# --------------------------
+# 模块管理（管理员可见）
+# --------------------------
+@app.get("/api/modules")
+def list_modules(cur: models.User = Depends(auth.get_current_user)):
+    modules = crud.list_modules(cur.role, cur.username)
+    return modules
+
+@app.post("/api/modules")
+def create_module(data: schemas.ModuleCreate, cur: models.User = Depends(auth.get_current_user)):
+    if cur.role not in ("admin", "company_admin"):
+        raise HTTPException(status_code=403, detail="仅管理员可创建模块")
+    m = crud.create_module(data.name, data.description, cur.username)
+    return m
+
+
+# --------------------------
+# 任务元数据更新
+# --------------------------
+@app.put("/api/tasks/{task_id}/meta")
+def update_task_meta(task_id: str, data: schemas.TaskMetaUpdate, cur: models.User = Depends(auth.get_current_user)):
+    task = crud.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    if cur.role not in ("admin", "company_admin") and task.assignee != cur.username:
+        raise HTTPException(status_code=403, detail="无权限修改该任务")
+    try:
+        updated = crud.update_task_meta(
+            task_id,
+            priority=data.priority,
+            labels=data.labels,
+            module_id=data.module_id,
+            estimate_hours=data.estimate_hours,
+            due_date=data.due_date,
+        )
+        return updated
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# --------------------------
+# 迭代（Cycles）
+# --------------------------
+@app.get("/api/cycles")
+def list_cycles(cur: models.User = Depends(auth.get_current_user)):
+    return crud.list_cycles(cur.role, cur.username)
+
+@app.post("/api/cycles")
+def create_cycle(data: schemas.CycleCreate, cur: models.User = Depends(auth.get_current_user)):
+    if cur.role not in ("admin", "company_admin"):
+        raise HTTPException(status_code=403, detail="仅管理员可创建迭代")
+    return crud.create_cycle(data.name, data.start_date, data.end_date, data.goal, cur.username)
+
+@app.get("/api/cycles/{cycle_id}")
+def get_cycle_detail(cycle_id: str, cur: models.User = Depends(auth.get_current_user)):
+    if cur.role not in ("admin", "company_admin"):
+        raise HTTPException(status_code=403, detail="仅管理员可查看迭代")
+    detail = crud.get_cycle_detail(cycle_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="迭代不存在")
+    return detail
+
+@app.post("/api/cycles/{cycle_id}/tasks")
+def add_task_to_cycle(cycle_id: str, payload: schemas.CycleTaskAssign, cur: models.User = Depends(auth.get_current_user)):
+    if cur.role not in ("admin", "company_admin"):
+        raise HTTPException(status_code=403, detail="仅管理员可分配任务到迭代")
+    try:
+        crud.assign_task_to_cycle(cycle_id, payload.task_id)
+        return {"message": "已加入迭代"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/api/cycles/{cycle_id}/tasks/{task_id}")
+def remove_task_from_cycle(cycle_id: str, task_id: str, cur: models.User = Depends(auth.get_current_user)):
+    if cur.role not in ("admin", "company_admin"):
+        raise HTTPException(status_code=403, detail="仅管理员可操作")
+    crud.remove_task_from_cycle(cycle_id, task_id)
+    return {"message": "已移除"}
+
+
+# --------------------------
+# 管理员任务列表（用于分配迭代等）
+# --------------------------
+@app.get("/api/tasks")
+def list_all_tasks(cur: models.User = Depends(auth.get_current_user)):
+    if cur.role not in ("admin", "company_admin"):
+        raise HTTPException(status_code=403, detail="仅管理员可查看全部任务")
+    return crud.list_all_tasks_admin()
+
+
+# --------------------------
+# 保存视图（个人）
+# --------------------------
+@app.get("/api/views")
+def list_views(cur: models.User = Depends(auth.get_current_user)):
+    return crud.list_views(cur.username)
+
+@app.post("/api/views")
+def create_view(data: schemas.SavedViewCreate, cur: models.User = Depends(auth.get_current_user)):
+    return crud.save_view(cur.username, data.name, data.filters)
+
+@app.delete("/api/views/{view_id}")
+def delete_view(view_id: str, cur: models.User = Depends(auth.get_current_user)):
+    crud.delete_view(view_id, cur.username)
+    return {"message": "已删除"}
+
 @app.get("/api/dashboard/stats")
 def dashboard_stats(cur: models.User = Depends(auth.get_current_user)):
     return crud.get_dashboard_stats(

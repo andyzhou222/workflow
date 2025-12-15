@@ -56,51 +56,73 @@ def init_db():
     SQLModel.metadata.create_all(engine)
     
     # 检查并添加新列（用于现有数据库的迁移）
-    # 只对 SQLite 执行，PostgreSQL 会自动处理
+    # 只对 SQLite 执行，PostgreSQL 使用信息模式检查
     if not IS_POSTGRES:
         with Session(engine) as s:
             try:
-                # SQLite 使用 PRAGMA 检查列
-                result = s.exec(text("PRAGMA table_info(user)"))
-                columns = [row[1] for row in result]
-                
-                if 'title' not in columns:
+                def has_column(table: str, col: str):
+                    result = s.exec(text(f"PRAGMA table_info({table})"))
+                    return col in [row[1] for row in result]
+
+                if not has_column("user", "title"):
                     s.exec(text("ALTER TABLE user ADD COLUMN title TEXT"))
                     s.commit()
                     print("Added 'title' column to user table")
                 
-                if 'avatar' not in columns:
+                if not has_column("user", "avatar"):
                     s.exec(text("ALTER TABLE user ADD COLUMN avatar TEXT"))
                     s.commit()
                     print("Added 'avatar' column to user table")
+
+                # Task 新增列
+                task_new_columns = [
+                    ("priority", "TEXT"),
+                    ("labels", "TEXT"),  # JSON 以 TEXT 形式存储
+                    ("module_id", "TEXT"),
+                    ("estimate_hours", "REAL"),
+                    ("due_date", "DATE"),
+                ]
+                for col, col_type in task_new_columns:
+                    if not has_column("task", col):
+                        s.exec(text(f"ALTER TABLE task ADD COLUMN {col} {col_type}"))
+                        s.commit()
+                        print(f"Added '{col}' column to task table")
             except Exception as e:
                 print(f"Migration check error (may be normal for new DB): {e}")
                 s.rollback()
     else:
-        # PostgreSQL: 使用信息模式检查列
         with Session(engine) as s:
             try:
-                # 检查 title 列
-                result = s.exec(text("""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name='user' AND column_name='title'
-                """))
-                if not result.first():
+                def has_column_pg(table: str, col: str):
+                    result = s.exec(text(f"""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name='{table}' AND column_name='{col}'
+                    """))
+                    return result.first() is not None
+
+                if not has_column_pg("user", "title"):
                     s.exec(text("ALTER TABLE \"user\" ADD COLUMN title TEXT"))
                     s.commit()
                     print("Added 'title' column to user table")
                 
-                # 检查 avatar 列
-                result = s.exec(text("""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name='user' AND column_name='avatar'
-                """))
-                if not result.first():
+                if not has_column_pg("user", "avatar"):
                     s.exec(text("ALTER TABLE \"user\" ADD COLUMN avatar TEXT"))
                     s.commit()
                     print("Added 'avatar' column to user table")
+
+                task_new_columns = [
+                    ("priority", "TEXT"),
+                    ("labels", "JSONB"),
+                    ("module_id", "TEXT"),
+                    ("estimate_hours", "REAL"),
+                    ("due_date", "DATE"),
+                ]
+                for col, col_type in task_new_columns:
+                    if not has_column_pg("task", col):
+                        s.exec(text(f"ALTER TABLE \"task\" ADD COLUMN {col} {col_type}"))
+                        s.commit()
+                        print(f"Added '{col}' column to task table")
             except Exception as e:
                 print(f"PostgreSQL migration check error (may be normal for new DB): {e}")
                 s.rollback()
@@ -208,6 +230,11 @@ def get_tasks_for_user(username: str):
                     "opinion": task.opinion,
                     "assigned_at": task.assigned_at.isoformat() if task.assigned_at else None,
                     "finished_at": task.finished_at.isoformat() if task.finished_at else None,
+                    "priority": task.priority,
+                    "labels": task.labels or [],
+                    "module_id": task.module_id,
+                    "estimate_hours": task.estimate_hours,
+                    "due_date": task.due_date.isoformat() if task.due_date else None,
                     "data": inst.data if inst else {},
                     "instance": {
                         "id": inst.id,
@@ -221,6 +248,39 @@ def get_tasks_for_user(username: str):
 def get_task(tid: str):
     with Session(engine) as s:
         return s.get(Task, tid)
+
+def list_all_tasks_admin():
+    """管理员视角查看所有任务（含已完成/驳回），用于分配到迭代"""
+    with Session(engine) as s:
+        tasks = s.exec(select(Task)).all()
+        results = []
+        for task in tasks:
+            inst = s.get(ProcessInstance, task.instance_id)
+            tpl = s.get(ProcessTemplate, inst.template_id) if inst else None
+            node_name = task.node_id
+            if tpl and tpl.definition:
+                node = next((n for n in tpl.definition.get("nodes", []) if n.get("id") == task.node_id), None)
+                if node and node.get("meta", {}).get("name"):
+                    node_name = node.get("meta", {}).get("name")
+            results.append({
+                "id": task.id,
+                "instance_id": task.instance_id,
+                "node_id": task.node_id,
+                "node_name": node_name,
+                "assignee": task.assignee,
+                "status": task.status,
+                "priority": task.priority,
+                "labels": task.labels or [],
+                "module_id": task.module_id,
+                "estimate_hours": task.estimate_hours,
+                "due_date": task.due_date.isoformat() if task.due_date else None,
+                "assigned_at": task.assigned_at.isoformat() if task.assigned_at else None,
+                "finished_at": task.finished_at.isoformat() if task.finished_at else None,
+                "instance_title": inst.data.get("title") if inst and inst.data else None,
+                "instance_status": inst.status if inst else None,
+                "template_name": tpl.name if tpl else None,
+            })
+        return results
 
 def complete_task(task_id: str, username: str, decision: str, opinion: str = None):
     from datetime import datetime, timezone, timedelta
@@ -306,6 +366,138 @@ def delete_template(template_id: str):
             raise ValueError("模板不存在")
         s.delete(tpl)
         s.commit()
+
+
+# --------------------------
+# 模块（Module）
+# --------------------------
+def create_module(name: str, description: str, creator: str):
+    with Session(engine) as s:
+        m = Module(name=name, description=description, created_by=creator)
+        s.add(m); s.commit(); s.refresh(m)
+        return m
+
+def list_modules(role: str, username: str):
+    """管理员可见；普通用户暂不返回。"""
+    if role not in ("admin", "company_admin"):
+        return []
+    with Session(engine) as s:
+        return s.exec(select(Module).order_by(Module.created_at.desc())).all()
+
+
+# --------------------------
+# 任务元数据
+# --------------------------
+def update_task_meta(task_id: str, priority: str = None, labels = None, module_id: str = None, estimate_hours: float = None, due_date = None):
+    with Session(engine) as s:
+        task = s.get(Task, task_id)
+        if not task:
+            raise ValueError("任务不存在")
+        if priority is not None:
+            task.priority = priority
+        if labels is not None:
+            # labels 允许字符串数组
+            task.labels = labels
+        if module_id is not None:
+            task.module_id = module_id
+        if estimate_hours is not None:
+            task.estimate_hours = estimate_hours
+        if due_date is not None:
+            task.due_date = due_date
+        s.add(task); s.commit(); s.refresh(task)
+        return task
+
+
+# --------------------------
+# 迭代（Cycle）
+# --------------------------
+def create_cycle(name: str, start_date, end_date, goal: str, creator: str):
+    with Session(engine) as s:
+        c = Cycle(name=name, start_date=start_date, end_date=end_date, goal=goal, created_by=creator)
+        s.add(c); s.commit(); s.refresh(c)
+        return c
+
+def list_cycles(role: str, username: str):
+    """仅管理员/公司管理员可见"""
+    if role not in ("admin", "company_admin"):
+        return []
+    with Session(engine) as s:
+        return s.exec(select(Cycle).order_by(Cycle.start_date.desc())).all()
+
+def assign_task_to_cycle(cycle_id: str, task_id: str):
+    with Session(engine) as s:
+        c = s.get(Cycle, cycle_id)
+        if not c:
+            raise ValueError("迭代不存在")
+        t = s.get(Task, task_id)
+        if not t:
+            raise ValueError("任务不存在")
+        exists = s.get(CycleTask, (cycle_id, task_id))
+        if not exists:
+            ct = CycleTask(cycle_id=cycle_id, task_id=task_id)
+            s.add(ct)
+        s.commit()
+
+def remove_task_from_cycle(cycle_id: str, task_id: str):
+    with Session(engine) as s:
+        ct = s.get(CycleTask, (cycle_id, task_id))
+        if ct:
+            s.delete(ct); s.commit()
+
+def get_cycle_detail(cycle_id: str):
+    with Session(engine) as s:
+        c = s.get(Cycle, cycle_id)
+        if not c:
+            return None
+        mappings = s.exec(select(CycleTask).where(CycleTask.cycle_id == cycle_id)).all()
+        task_ids = [m.task_id for m in mappings]
+        tasks = []
+        if task_ids:
+            tasks = s.exec(select(Task).where(Task.id.in_(task_ids))).all()
+        return {
+            "id": c.id,
+            "name": c.name,
+            "start_date": c.start_date.isoformat() if c.start_date else None,
+            "end_date": c.end_date.isoformat() if c.end_date else None,
+            "goal": c.goal,
+            "created_by": c.created_by,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "tasks": [
+                {
+                    "id": t.id,
+                    "instance_id": t.instance_id,
+                    "node_id": t.node_id,
+                    "assignee": t.assignee,
+                    "status": t.status,
+                    "priority": t.priority,
+                    "labels": t.labels or [],
+                    "module_id": t.module_id,
+                    "estimate_hours": t.estimate_hours,
+                    "due_date": t.due_date.isoformat() if t.due_date else None,
+                }
+                for t in tasks
+            ]
+        }
+
+
+# --------------------------
+# 视图（SavedView）
+# --------------------------
+def save_view(owner: str, name: str, filters: dict):
+    with Session(engine) as s:
+        v = SavedView(name=name, owner=owner, filters=filters or {})
+        s.add(v); s.commit(); s.refresh(v)
+        return v
+
+def list_views(owner: str):
+    with Session(engine) as s:
+        return s.exec(select(SavedView).where(SavedView.owner == owner).order_by(SavedView.created_at.desc())).all()
+
+def delete_view(view_id: str, owner: str):
+    with Session(engine) as s:
+        v = s.get(SavedView, view_id)
+        if v and v.owner == owner:
+            s.delete(v); s.commit()
 
 def list_instances_by_user(username: str, status: Optional[str] = None):
     with Session(engine) as s:

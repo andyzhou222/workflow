@@ -14,11 +14,23 @@ export default function TaskTodo() {
   const [instanceDetail, setInstanceDetail] = useState(null);
   const [opinion, setOpinion] = useState('');
   const [keyword, setKeyword] = useState('');
+  const [priority, setPriority] = useState('');
+  const [labelsInput, setLabelsInput] = useState('');
+  const [moduleId, setModuleId] = useState('');
+  const [modules, setModules] = useState([]);
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [moduleFilter, setModuleFilter] = useState('');
+  const [labelFilter, setLabelFilter] = useState('');
+  const [views, setViews] = useState([]);
+  const [viewName, setViewName] = useState('');
+  const [savingView, setSavingView] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     loadTasks();
     loadRejected();
+    loadModules();
+    loadViews();
   }, []);
 
   async function loadTasks() {
@@ -50,6 +62,9 @@ export default function TaskTodo() {
     setSelectedTask(task);
     setOpinion('');
     setInstanceDetail(null);
+    setPriority(task.priority || '');
+    setModuleId(task.module_id || '');
+    setLabelsInput((task.labels || []).join(','));
     if (!task?.instance_id) return;
     setDetailLoading(true);
     try{
@@ -99,12 +114,46 @@ export default function TaskTodo() {
     }
   }
 
+  async function loadModules(){
+    try{
+      const r = await api.get('/modules');
+      setModules(r.data || []);
+    }catch(e){
+      // 非管理员会 403，忽略
+      setModules([]);
+    }
+  }
+
+  async function loadViews(){
+    try{
+      const r = await api.get('/views');
+      setViews(r.data || []);
+    }catch(e){
+      setViews([]);
+    }
+  }
+
+  const getModuleName = (id) => {
+    if (!id) return '';
+    const m = modules.find(m=>m.id === id);
+    return m ? m.name : id;
+  };
+
   const filteredTasks = tasks.filter(task => {
-    if (!keyword.trim()) return true;
     const kw = keyword.trim().toLowerCase();
-    const title = (task.data?.title || '').toLowerCase();
-    const startedBy = (task.instance?.started_by || '').toLowerCase();
-    return title.includes(kw) || startedBy.includes(kw);
+    const labelKw = labelFilter.trim().toLowerCase();
+    if (kw) {
+      const title = (task.data?.title || '').toLowerCase();
+      const startedBy = (task.instance?.started_by || '').toLowerCase();
+      if (!title.includes(kw) && !startedBy.includes(kw)) return false;
+    }
+    if (priorityFilter && task.priority !== priorityFilter) return false;
+    if (moduleFilter && task.module_id !== moduleFilter) return false;
+    if (labelKw) {
+      const labels = (task.labels || []).map(l=>l.toLowerCase());
+      if (!labels.some(l=>l.includes(labelKw))) return false;
+    }
+    return true;
   });
 
   const renderTaskCard = (task) => (
@@ -130,6 +179,13 @@ export default function TaskTodo() {
       <div className="hint" style={{ fontSize: 12 }}>
         当前处理人：{task.assignee || '-'}
       </div>
+      <div className="hint" style={{ fontSize: 12, marginTop: 4, display:'flex', gap:8, flexWrap:'wrap' }}>
+        {task.priority && <span style={{ color:'#f97316' }}>优先级：{task.priority}</span>}
+        {task.labels?.length > 0 && (
+          <span>标签：{task.labels.join('、')}</span>
+        )}
+        {task.module_id && <span>模块：{getModuleName(task.module_id)}</span>}
+      </div>
     </div>
   );
 
@@ -154,6 +210,9 @@ export default function TaskTodo() {
               type="button"
               onClick={() => {
                 setKeyword('');
+                setPriorityFilter('');
+                setModuleFilter('');
+                setLabelFilter('');
                 loadTasks();
                 loadRejected();
               }}
@@ -162,6 +221,104 @@ export default function TaskTodo() {
             </button>
           </div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:12 }}>
+          <div>
+            <label className="hint">优先级筛选</label>
+            <select className="input" value={priorityFilter} onChange={e=>setPriorityFilter(e.target.value)}>
+              <option value="">全部</option>
+              <option value="低">低</option>
+              <option value="中">中</option>
+              <option value="高">高</option>
+              <option value="紧急">紧急</option>
+            </select>
+          </div>
+          <div>
+            <label className="hint">模块筛选</label>
+            <select className="input" value={moduleFilter} onChange={e=>setModuleFilter(e.target.value)}>
+              <option value="">全部</option>
+              {modules.map(m=>(
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="hint">标签包含</label>
+            <input
+              className="input"
+              placeholder="输入标签关键字"
+              value={labelFilter}
+              onChange={e=>setLabelFilter(e.target.value)}
+            />
+          </div>
+          <div style={{ display:'flex', gap:8, alignItems:'flex-end' }}>
+            <input
+              className="input"
+              placeholder="保存为视图名称"
+              value={viewName}
+              onChange={e=>setViewName(e.target.value)}
+            />
+            <button
+              className="btn small"
+              disabled={savingView || !viewName.trim()}
+              onClick={async ()=>{
+                setSavingView(true);
+                setError('');
+                try{
+                  await api.post('/views', {
+                    name: viewName.trim(),
+                    filters: {
+                      keyword,
+                      priority: priorityFilter,
+                      module_id: moduleFilter,
+                      label: labelFilter,
+                    }
+                  });
+                  setViewName('');
+                  await loadViews();
+                }catch(e){
+                  setError('保存视图失败：' + (e?.response?.data?.detail || e.message));
+                }finally{
+                  setSavingView(false);
+                }
+              }}
+            >
+              {savingView ? '保存中...' : '保存视图'}
+            </button>
+          </div>
+        </div>
+        {views.length > 0 && (
+          <div style={{ marginTop: 12, display:'flex', gap:8, flexWrap:'wrap' }}>
+            <span className="hint">我的视图：</span>
+            {views.map(v=>(
+              <div key={v.id} style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', border:'1px solid var(--border)', borderRadius:8 }}>
+                <button
+                  className="btn small secondary"
+                  style={{ padding:'4px 8px' }}
+                  onClick={()=>{
+                    const f = v.filters || {};
+                    setKeyword(f.keyword || '');
+                    setPriorityFilter(f.priority || '');
+                    setModuleFilter(f.module_id || '');
+                    setLabelFilter(f.label || '');
+                  }}
+                >
+                  {v.name}
+                </button>
+                <button
+                  className="btn small secondary"
+                  style={{ padding:'4px 6px' }}
+                  onClick={async ()=>{
+                    await api.delete(`/views/${v.id}`);
+                    await loadViews();
+                  }}
+                >✕</button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {error && (
@@ -255,6 +412,36 @@ export default function TaskTodo() {
               <h3>{instanceDetail?.title || selectedTask.data?.title || '未命名流程'}</h3>
               <p className="hint" style={{ marginBottom: 12 }}>当前节点：{selectedTask.node_name || selectedTask.node_id || '-'}</p>
               <p className="hint" style={{ marginBottom: 12 }}>当前处理人：{selectedTask.assignee || '-'}</p>
+              <div className="form-row" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:12 }}>
+                <div>
+                  <label>优先级</label>
+                  <select className="input" value={priority} onChange={e=>setPriority(e.target.value)}>
+                    <option value="">未设置</option>
+                    <option value="低">低</option>
+                    <option value="中">中</option>
+                    <option value="高">高</option>
+                    <option value="紧急">紧急</option>
+                  </select>
+                </div>
+                <div>
+                  <label>模块（管理员可见）</label>
+                  <select className="input" value={moduleId} onChange={e=>setModuleId(e.target.value)}>
+                    <option value="">未设置</option>
+                    {modules.map(m=>(
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="form-row">
+                <label>标签（逗号分隔，可自由输入）</label>
+                <input
+                  className="input"
+                  value={labelsInput}
+                  onChange={e=>setLabelsInput(e.target.value)}
+                  placeholder="例如：UI, 紧急, 客户A"
+                />
+              </div>
 
               {detailLoading && <div className="hint" style={{ marginBottom: 12 }}>详情加载中...</div>}
 
@@ -326,7 +513,36 @@ export default function TaskTodo() {
                   </button>
                 </div>
               ) : (
-                <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ display: 'flex', gap: 12, flexWrap:'wrap' }}>
+                  <button
+                    className="btn secondary"
+                    type="button"
+                    onClick={async ()=>{
+                      setActionLoading(prev=>({...prev, [selectedTask.id]: true}));
+                      try{
+                        await api.put(`/tasks/${selectedTask.id}/meta`, {
+                          priority: priority || null,
+                          labels: labelsInput
+                            ? labelsInput.split(',').map(t=>t.trim()).filter(Boolean)
+                            : [],
+                          module_id: moduleId || null,
+                        });
+                        await loadTasks();
+                        if (selectedTask) {
+                          const refreshed = (await api.get(`/tasks/todo`)).data || [];
+                          const found = refreshed.find(t=>t.id === selectedTask.id);
+                          if (found) setSelectedTask(found);
+                        }
+                      }catch(e){
+                        setError('更新任务属性失败：' + (e?.response?.data?.detail || e.message));
+                      }finally{
+                        setActionLoading(prev=>({...prev, [selectedTask.id]: false}));
+                      }
+                    }}
+                    disabled={actionLoading[selectedTask.id]}
+                  >
+                    {actionLoading[selectedTask.id] ? '更新中...' : '保存任务属性'}
+                  </button>
                   <button
                     className="btn"
                     onClick={() => completeTask(selectedTask, 'approve')}

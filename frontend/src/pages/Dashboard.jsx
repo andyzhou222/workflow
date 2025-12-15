@@ -193,12 +193,15 @@ export default function Dashboard(){
                 <p className="hint">暂无用户待办数据</p>
               </div>
             ) : (
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                gap: '16px',
-                width: '100%'
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '16px',
+                  width: '100%',
+                  overflowX: 'auto',
+                  paddingBottom: 4,
+                }}
+              >
                 {(stats.user_summary || []).map(user => {
                   const roleInfo = renderRoleTag(user.role);
                   const total = user.total_pending || 0;
@@ -207,7 +210,17 @@ export default function Dashboard(){
                   const future = Math.max(total - overdue - today, 0);
                   const safeTotal = total || 1; // 避免除以 0
                   return (
-                    <div key={user.username} className="card" style={{border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)'}}>
+                    <div
+                      key={user.username}
+                      className="card"
+                      style={{
+                        border: '1px solid var(--border)',
+                        boxShadow: 'var(--shadow-sm)',
+                        minWidth: 260,
+                        maxWidth: 320,
+                        flexShrink: 0,
+                      }}
+                    >
                       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px'}}>
                         <div>
                           <div style={{fontWeight:600, fontSize:'15px', color:'var(--text-primary)'}}>{user.display_name || user.username}</div>

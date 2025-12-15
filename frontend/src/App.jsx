@@ -13,6 +13,8 @@ import InstanceDetail from './pages/InstanceDetail';
 import Profile from './pages/Profile';
 import UserManagement from './pages/UserManagement';
 import StandardDocs from './pages/StandardDocs';
+import Modules from './pages/Modules';
+import Cycles from './pages/Cycles';
 import api, { setToken } from './api';
 
 const API_BASE = (import.meta.env.VITE_API_BASE || '').trim();
@@ -158,6 +160,9 @@ export default function App() {
           <NavLink to="/tasks/todo" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
             <span>✅ 任务</span>
           </NavLink>
+          <NavLink to="/cycles" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+            <span>🔁 迭代</span>
+          </NavLink>
           <NavLink to="/my-instances" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
             <span>📂 流程</span>
           </NavLink>
@@ -175,6 +180,9 @@ export default function App() {
           </NavLink>
           <NavLink to="/standard-docs" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
             <span>📚 标准文档</span>
+          </NavLink>
+          <NavLink to="/modules" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+            <span>🧱 模块</span>
           </NavLink>
           {isAdmin && (
             <>
@@ -286,11 +294,13 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/launch" element={<LaunchFlow />} />
           <Route path="/tasks/todo" element={<TaskTodo />} />
+          <Route path="/cycles" element={<Cycles />} />
           <Route path="/my-instances" element={<MyInstances />} />
           <Route path="/instances/:id" element={<InstanceDetail />} />
           <Route path="/templates" element={<TemplateList />} />
           <Route path="/designer" element={<TemplateDesigner />} />
           <Route path="/standard-docs" element={<StandardDocs />} />
+          <Route path="/modules" element={<Modules />} />
           <Route path="/users" element={isAdmin ? <UserManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
