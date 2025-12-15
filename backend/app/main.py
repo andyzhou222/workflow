@@ -511,7 +511,7 @@ def list_modules(cur: models.User = Depends(auth.get_current_user)):
 
 @app.post("/api/modules")
 def create_module(data: schemas.ModuleCreate, cur: models.User = Depends(auth.get_current_user)):
-    if cur.role not in ("admin", "company_admin"):
+    if cur.role not in ("admin", "company_admin", "dept_admin"):
         raise HTTPException(status_code=403, detail="仅管理员可创建模块")
     m = crud.create_module(data.name, data.description, cur.username)
     return m
@@ -550,13 +550,13 @@ def list_cycles(cur: models.User = Depends(auth.get_current_user)):
 
 @app.post("/api/cycles")
 def create_cycle(data: schemas.CycleCreate, cur: models.User = Depends(auth.get_current_user)):
-    if cur.role not in ("admin", "company_admin"):
+    if cur.role not in ("admin", "company_admin", "dept_admin"):
         raise HTTPException(status_code=403, detail="仅管理员可创建迭代")
     return crud.create_cycle(data.name, data.start_date, data.end_date, data.goal, cur.username)
 
 @app.get("/api/cycles/{cycle_id}")
 def get_cycle_detail(cycle_id: str, cur: models.User = Depends(auth.get_current_user)):
-    if cur.role not in ("admin", "company_admin"):
+    if cur.role not in ("admin", "company_admin", "dept_admin"):
         raise HTTPException(status_code=403, detail="仅管理员可查看迭代")
     detail = crud.get_cycle_detail(cycle_id)
     if not detail:
@@ -565,7 +565,7 @@ def get_cycle_detail(cycle_id: str, cur: models.User = Depends(auth.get_current_
 
 @app.post("/api/cycles/{cycle_id}/tasks")
 def add_task_to_cycle(cycle_id: str, payload: schemas.CycleTaskAssign, cur: models.User = Depends(auth.get_current_user)):
-    if cur.role not in ("admin", "company_admin"):
+    if cur.role not in ("admin", "company_admin", "dept_admin"):
         raise HTTPException(status_code=403, detail="仅管理员可分配任务到迭代")
     try:
         crud.assign_task_to_cycle(cycle_id, payload.task_id)
@@ -575,7 +575,7 @@ def add_task_to_cycle(cycle_id: str, payload: schemas.CycleTaskAssign, cur: mode
 
 @app.delete("/api/cycles/{cycle_id}/tasks/{task_id}")
 def remove_task_from_cycle(cycle_id: str, task_id: str, cur: models.User = Depends(auth.get_current_user)):
-    if cur.role not in ("admin", "company_admin"):
+    if cur.role not in ("admin", "company_admin", "dept_admin"):
         raise HTTPException(status_code=403, detail="仅管理员可操作")
     crud.remove_task_from_cycle(cycle_id, task_id)
     return {"message": "已移除"}
@@ -586,7 +586,7 @@ def remove_task_from_cycle(cycle_id: str, task_id: str, cur: models.User = Depen
 # --------------------------
 @app.get("/api/tasks")
 def list_all_tasks(cur: models.User = Depends(auth.get_current_user)):
-    if cur.role not in ("admin", "company_admin"):
+    if cur.role not in ("admin", "company_admin", "dept_admin"):
         raise HTTPException(status_code=403, detail="仅管理员可查看全部任务")
     return crud.list_all_tasks_admin()
 

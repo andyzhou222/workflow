@@ -199,7 +199,8 @@ def create_instance(template_id: str, data: dict, started_by: str, old_instance_
         s.add(inst); s.commit(); s.refresh(inst)
         node = next((n for n in defn.get("nodes", []) if n['id'] == first_node_id), None)
         assignee = node.get('meta', {}).get('assignee')
-        t = Task(instance_id=inst.id, node_id=first_node_id, assignee=assignee)
+        priority = (data or {}).get("priority")
+        t = Task(instance_id=inst.id, node_id=first_node_id, assignee=assignee, priority=priority)
         s.add(t); s.commit(); s.refresh(t)
         return inst, t
 
@@ -321,7 +322,8 @@ def complete_task(task_id: str, username: str, decision: str, opinion: str = Non
         inst.current_node = next_node_id
         s.add(inst); s.commit()
         assignee = next_node.get('meta', {}).get('assignee') if next_node else None
-        new_task = Task(instance_id=inst.id, node_id=next_node_id, assignee=assignee)
+        priority = inst.data.get("priority") if inst and inst.data else None
+        new_task = Task(instance_id=inst.id, node_id=next_node_id, assignee=assignee, priority=priority)
         s.add(new_task); s.commit(); s.refresh(new_task)
         return task, inst, new_task
 
@@ -378,8 +380,8 @@ def create_module(name: str, description: str, creator: str):
         return m
 
 def list_modules(role: str, username: str):
-    """管理员可见；普通用户暂不返回。"""
-    if role not in ("admin", "company_admin"):
+    """管理员/公司管理员/部门管理员可见；普通用户暂不返回。"""
+    if role not in ("admin", "company_admin", "dept_admin"):
         return []
     with Session(engine) as s:
         return s.exec(select(Module).order_by(Module.created_at.desc())).all()
@@ -418,8 +420,8 @@ def create_cycle(name: str, start_date, end_date, goal: str, creator: str):
         return c
 
 def list_cycles(role: str, username: str):
-    """仅管理员/公司管理员可见"""
-    if role not in ("admin", "company_admin"):
+    """管理员/公司管理员/部门管理员可见"""
+    if role not in ("admin", "company_admin", "dept_admin"):
         return []
     with Session(engine) as s:
         return s.exec(select(Cycle).order_by(Cycle.start_date.desc())).all()

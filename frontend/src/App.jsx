@@ -167,7 +167,7 @@ export default function App() {
             <span>📂 流程</span>
           </NavLink>
           <NavLink to="/launch" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-            <span>📝 发起流程</span>
+            <span>📝 提交任务</span>
           </NavLink>
 
           {/* 配置与管理分区 */}

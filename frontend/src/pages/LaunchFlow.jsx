@@ -8,6 +8,7 @@ const initialForm = {
   content_type: '视频',
   description: '',
   due_date: '',
+  priority: '中',
   attachments: [],
   approvers: [],
 };
@@ -56,6 +57,7 @@ export default function LaunchFlow() {
         description: prefill.data?.description || '',
         due_date: prefill.data?.due_date || '',
         approvers: prefill.data?.approvers || [],
+        priority: prefill.data?.priority || '中',
       }));
       setFiles(prefill.data?.attachments || []);
     }
@@ -159,6 +161,7 @@ export default function LaunchFlow() {
           due_date: form.due_date,
           attachments: files,
           approvers: form.approvers,
+          priority: form.priority,
         },
       };
       // 如果是重新提交，传递旧实例ID
@@ -183,8 +186,8 @@ export default function LaunchFlow() {
   return (
     <div>
       <div className="page-header">
-        <h1>发起签审</h1>
-        <p>选择流程模板并提交内容进行签审</p>
+        <h1>提交任务</h1>
+        <p>选择流程模板并提交内容进入审批流程</p>
       </div>
 
       {error && (
@@ -243,6 +246,20 @@ export default function LaunchFlow() {
 
           <div className="form-row">
             <label>期望完成时间</label>
+          <div className="form-row">
+            <label>紧急程度</label>
+            <select
+              className="input"
+              value={form.priority}
+              onChange={e => handleChange('priority', e.target.value)}
+            >
+              <option value="低">低</option>
+              <option value="中">中</option>
+              <option value="高">高</option>
+              <option value="紧急">紧急</option>
+            </select>
+          </div>
+
             <input
               type="date"
               className="input"
@@ -373,7 +390,7 @@ export default function LaunchFlow() {
               className="btn"
               disabled={submitting || loading || !templates.length}
             >
-              {submitting ? '提交中...' : '提交签审'}
+              {submitting ? '提交中...' : '提交任务'}
             </button>
             <button
               type="button"

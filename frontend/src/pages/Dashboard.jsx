@@ -195,11 +195,10 @@ export default function Dashboard(){
             ) : (
               <div
                 style={{
-                  display: 'flex',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
                   gap: '16px',
                   width: '100%',
-                  overflowX: 'auto',
-                  paddingBottom: 4,
                 }}
               >
                 {(stats.user_summary || []).map(user => {
