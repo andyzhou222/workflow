@@ -161,19 +161,22 @@ export default function App() {
         </div>
 
         <nav className="sidebar-nav" style={{ padding: '0 12px' }}>
+          {/* 顶部一级导航：工作台 / 任务 / 流程 / 发起 */}
           <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-            <span>📊 仪表盘</span>
-          </NavLink>
-          <NavLink to="/launch" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-            <span>📝 发起签审</span>
+            <span>📊 工作台</span>
           </NavLink>
           <NavLink to="/tasks/todo" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-            <span>✅ 待办任务</span>
+            <span>✅ 任务</span>
           </NavLink>
           <NavLink to="/my-instances" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
-            <span>📂 我发起的流程</span>
+            <span>📂 流程</span>
           </NavLink>
-          <div className="nav-section-title" style={{ marginTop: '12px', marginBottom: '8px' }}>流程配置</div>
+          <NavLink to="/launch" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
+            <span>📝 发起流程</span>
+          </NavLink>
+
+          {/* 配置与管理分区 */}
+          <div className="nav-section-title" style={{ marginTop: '12px', marginBottom: '8px' }}>配置</div>
           <NavLink to="/templates" className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}>
             <span>📄 模板管理</span>
           </NavLink>

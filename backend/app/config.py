@@ -24,11 +24,3 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 480))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "..", "uploads")
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-# Supabase Storage 配置（用于持久化上传文件）
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET")
-SUPABASE_UPLOAD_PREFIX = os.getenv("SUPABASE_UPLOAD_PREFIX", "workflow")
-SUPABASE_TIMEOUT = int(os.getenv("SUPABASE_TIMEOUT", "60"))
-SUPABASE_ENABLED = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY and SUPABASE_BUCKET)

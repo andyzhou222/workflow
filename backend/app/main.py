@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
@@ -40,32 +40,27 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(static_dir):
     app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
-
-@app.get("/api/uploads/{file_path:path}")
-async def serve_upload_file(file_path: str):
-    """自定义文件服务：本地或 Supabase 代理"""
-    try:
-        stream, content_type = storage.open_file_stream(file_path)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="File not found")
-    return StreamingResponse(stream, media_type=content_type)
+# mount uploads folder for avatars and files
+if os.path.exists(UPLOAD_FOLDER):
+    # 使用自定义的静态文件服务，确保正确的Content-Type
+    from fastapi.responses import FileResponse
+    from fastapi import Request
+    from pathlib import Path
+    
+    @app.get("/api/uploads/{file_path:path}")
+    async def serve_upload_file(file_path: str, request: Request):
+        """自定义静态文件服务，确保正确的Content-Type"""
+        full_path = os.path.join(UPLOAD_FOLDER, file_path)
+        if not os.path.exists(full_path) or not os.path.isfile(full_path):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="File not found")
+        return FileResponse(
+            full_path,
+            media_type=None,  # 让FastAPI自动检测
+            filename=os.path.basename(full_path)
+        )
 
 from fastapi.security import OAuth2PasswordRequestForm
-
-
-def serialize_user(user: models.User | None):
-    if not user:
-        return None
-    return {
-        "id": user.id,
-        "username": user.username,
-        "display_name": user.display_name,
-        "role": user.role or "user",
-        "department": user.department,
-        "title": user.title,
-        "avatar": storage.get_public_url(user.avatar),
-        "created_at": user.created_at.isoformat() if user.created_at else None,
-    }
 
 @app.post("/api/auth/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -76,9 +71,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
         token = create_access_token(user.username)
         crud.write_audit(user.username, "login", {})
         return {
-            "access_token": token,
-            "token_type": "bearer",
-            "user": serialize_user(user),
+            "access_token": token, 
+            "token_type": "bearer", 
+            "user": {
+                "username": user.username, 
+                "display_name": user.display_name or "", 
+                "role": user.role or "user"
+            }
         }
     except HTTPException:
         raise
@@ -148,7 +147,16 @@ def reset_password(data: schemas.PasswordReset):
 
 @app.get("/api/users/me")
 def me(user: models.User = Depends(auth.get_current_user)):
-    return serialize_user(user)
+    return {
+        "id": user.id,
+        "username": user.username, 
+        "display_name": user.display_name, 
+        "role": user.role, 
+        "department": user.department,
+        "title": user.title,
+        "avatar": user.avatar,
+        "created_at": user.created_at.isoformat() if user.created_at else None
+    }
 
 @app.put("/api/users/me")
 def update_me(data: schemas.UserUpdate, user: models.User = Depends(auth.get_current_user)):
@@ -167,6 +175,8 @@ def update_me(data: schemas.UserUpdate, user: models.User = Depends(auth.get_cur
                 db_user.department = data.department
             if data.title is not None:
                 db_user.title = data.title
+            if data.avatar is not None:
+                db_user.avatar = data.avatar
             # 普通用户不能修改自己的角色
             if data.role is not None and user.role in ("admin", "company_admin"):
                 db_user.role = data.role
@@ -175,7 +185,16 @@ def update_me(data: schemas.UserUpdate, user: models.User = Depends(auth.get_cur
             s.refresh(db_user)
         
         crud.write_audit(user.username, "update_profile", {})
-        return serialize_user(db_user)
+        return {
+            "id": db_user.id,
+            "username": db_user.username,
+            "display_name": db_user.display_name,
+            "role": db_user.role,
+            "department": db_user.department,
+            "title": db_user.title,
+            "avatar": db_user.avatar,
+            "created_at": db_user.created_at.isoformat() if db_user.created_at else None
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -213,23 +232,38 @@ def change_password(data: schemas.PasswordChange, user: models.User = Depends(au
 @app.post("/api/users/me/upload-avatar")
 def upload_avatar(file: UploadFile = File(...), user: models.User = Depends(auth.get_current_user)):
     try:
+        # 确保 avatars 目录存在
+        avatars_dir = os.path.join(UPLOAD_FOLDER, "avatars")
+        os.makedirs(avatars_dir, exist_ok=True)
+        
         # 生成文件名（使用用户ID和文件扩展名）
-        original_filename = file.filename or "avatar.jpg"
-        file_ext = os.path.splitext(original_filename)[1] or ".jpg"
+        import uuid
+        # 安全地获取文件扩展名，避免编码问题
+        original_filename = file.filename or 'avatar.jpg'
+        # 只保留安全的文件扩展名
+        file_ext = os.path.splitext(original_filename)[1] or '.jpg'
+        # 确保扩展名是安全的（只允许图片格式）
         if file_ext.lower() not in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
             file_ext = '.jpg'
-        filename = f"{user.id}{file_ext.lower()}"
-        storage_path = storage.save_upload_file(file, destination=f"avatars/{filename}")
-
+        filename = f"{user.id}{file_ext}"
+        dest_path = os.path.join(avatars_dir, filename)
+        
+        # 保存文件（使用二进制模式，避免编码问题）
+        with open(dest_path, "wb") as buffer:
+            data = file.file.read()
+            buffer.write(data)
+        
+        # 更新用户头像URL
+        avatar_url = f"/api/uploads/avatars/{filename}"
         with Session(crud.engine) as s:
             db_user = s.get(models.User, user.id)
-            db_user.avatar = storage_path
+            db_user.avatar = avatar_url
             s.add(db_user)
             s.commit()
             s.refresh(db_user)
-
+        
         crud.write_audit(user.username, "upload_avatar", {})
-        return {"avatar": storage.get_public_url(db_user.avatar), "message": "Avatar uploaded successfully"}
+        return {"avatar": db_user.avatar, "message": "Avatar uploaded successfully"}
     except Exception as e:
         import traceback
         print(f"Upload avatar error: {str(e)}")
@@ -352,13 +386,12 @@ def download_doc(doc_id: str, cur: models.User = Depends(auth.get_current_user))
     doc = crud.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="not found")
-    try:
-        stream, content_type = storage.open_file_stream(doc.filename)
-    except FileNotFoundError:
+    file_path = doc.filename
+    if not os.path.isabs(file_path):
+        file_path = os.path.join(UPLOAD_FOLDER, file_path)
+    if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="文件不存在或已被删除")
-    download_name = doc.title or (os.path.basename(doc.filename) if doc.filename else "document")
-    headers = {"Content-Disposition": f'attachment; filename="{download_name}"'}
-    return StreamingResponse(stream, media_type=content_type, headers=headers)
+    return FileResponse(file_path, filename=doc.title)
 
 
 @app.post("/api/standard-docs/upload")
@@ -448,7 +481,14 @@ def delete_standard_doc(doc_id: str, cur: models.User = Depends(auth.get_current
             doc = s.get(models.Document, doc_id)
             if not doc or doc.status != "standard":
                 raise HTTPException(status_code=404, detail="not found")
-            storage.delete_file(doc.filename)
+            file_path = doc.filename
+            if not os.path.isabs(file_path):
+                file_path = os.path.join(UPLOAD_FOLDER, file_path)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    print(f"Warning: failed to remove file {file_path}: {e}")
             s.delete(doc)
             s.commit()
         crud.write_audit(cur.username, "delete_standard_doc", {"doc_id": doc_id})
@@ -476,7 +516,16 @@ def list_users(cur: models.User = Depends(auth.get_current_user)):
         raise HTTPException(status_code=403, detail="admin only")
     with Session(crud.engine) as s:
         users = s.exec(select(models.User).order_by(models.User.created_at.desc())).all()
-        return [serialize_user(u) for u in users]
+        return [{
+            "id": u.id,
+            "username": u.username,
+            "display_name": u.display_name,
+            "role": u.role,
+            "department": u.department,
+            "title": u.title,
+            "avatar": u.avatar,
+            "created_at": u.created_at.isoformat() if u.created_at else None
+        } for u in users]
 
 @app.put("/api/users/{user_id}")
 def update_user(user_id: str, data: schemas.UserUpdate, cur: models.User = Depends(auth.get_current_user)):
@@ -506,12 +555,24 @@ def update_user(user_id: str, data: schemas.UserUpdate, cur: models.User = Depen
                 if data.role not in ["user", "dept_admin", "admin", "company_admin"]:
                     raise HTTPException(status_code=400, detail="Invalid role")
                 db_user.role = data.role
+            if data.avatar is not None:
+                db_user.avatar = data.avatar
+            
             s.add(db_user)
             s.commit()
             s.refresh(db_user)
         
         crud.write_audit(cur.username, "update_user", {"user_id": user_id})
-        return serialize_user(db_user)
+        return {
+            "id": db_user.id,
+            "username": db_user.username,
+            "display_name": db_user.display_name,
+            "role": db_user.role,
+            "department": db_user.department,
+            "title": db_user.title,
+            "avatar": db_user.avatar,
+            "created_at": db_user.created_at.isoformat() if db_user.created_at else None
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -557,7 +618,19 @@ def list_hr_profiles(cur: models.User = Depends(auth.get_current_user)):
         if cur.role == "dept_admin" and cur.department:
             query = query.where(models.User.department == cur.department)
         users = s.exec(query).all()
-        return [serialize_user(u) for u in users]
+        return [
+            {
+                "id": u.id,
+                "username": u.username,
+                "display_name": u.display_name,
+                "department": u.department,
+                "title": u.title,
+                "role": u.role or "user",
+                "avatar": u.avatar,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+            }
+            for u in users
+        ]
 
 @app.get("/api/instances/monitor")
 def monitor_instances(cur: models.User = Depends(auth.get_current_user)):
