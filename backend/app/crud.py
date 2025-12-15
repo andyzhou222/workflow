@@ -379,6 +379,25 @@ def create_module(name: str, description: str, creator: str):
         s.add(m); s.commit(); s.refresh(m)
         return m
 
+def update_module(module_id: str, name: str = None, description: str = None):
+    with Session(engine) as s:
+        m = s.get(Module, module_id)
+        if not m:
+            raise ValueError("模块不存在")
+        if name is not None:
+            m.name = name
+        if description is not None:
+            m.description = description
+        s.add(m); s.commit(); s.refresh(m)
+        return m
+
+def delete_module(module_id: str):
+    with Session(engine) as s:
+        m = s.get(Module, module_id)
+        if not m:
+            raise ValueError("模块不存在")
+        s.delete(m); s.commit()
+
 def list_modules(role: str, username: str):
     """管理员/公司管理员/部门管理员可见；普通用户暂不返回。"""
     if role not in ("admin", "company_admin", "dept_admin"):

@@ -7,6 +7,9 @@ export default function Modules() {
   const [error, setError] = useState('');
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
 
   useEffect(() => {
     load();
@@ -38,6 +41,37 @@ export default function Modules() {
       await load();
     } catch (e) {
       setError('创建模块失败：' + (e?.response?.data?.detail || e.message));
+    }
+  }
+
+  function startEdit(m){
+    setEditingId(m.id);
+    setEditName(m.name);
+    setEditDesc(m.description || '');
+  }
+
+  async function saveEdit(){
+    if(!editingId) return;
+    setError('');
+    try{
+      await api.put(`/modules/${editingId}`, { name: editName.trim(), description: editDesc.trim() });
+      setEditingId(null);
+      setEditName('');
+      setEditDesc('');
+      await load();
+    }catch(e){
+      setError('编辑模块失败：' + (e?.response?.data?.detail || e.message));
+    }
+  }
+
+  async function remove(id){
+    if(!window.confirm('确认删除该模块？')) return;
+    setError('');
+    try{
+      await api.delete(`/modules/${id}`);
+      await load();
+    }catch(e){
+      setError('删除模块失败：' + (e?.response?.data?.detail || e.message));
     }
   }
 
@@ -78,10 +112,35 @@ export default function Modules() {
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:16 }}>
             {list.map(m=>(
               <div key={m.id} className="card" style={{ border:'1px solid var(--border)', boxShadow:'var(--shadow-sm)' }}>
-                <div style={{ fontWeight:600, marginBottom:6 }}>{m.name}</div>
-                <div className="hint" style={{ minHeight:40 }}>{m.description || '无描述'}</div>
-                <div className="hint" style={{ marginTop:8 }}>创建人：{m.created_by || '-'}</div>
-                <div className="hint">创建时间：{m.created_at ? new Date(m.created_at).toLocaleString('zh-CN') : '-'}</div>
+                {editingId === m.id ? (
+                  <>
+                    <div className="form-row" style={{ marginBottom:8 }}>
+                      <label>名称</label>
+                      <input className="input" value={editName} onChange={e=>setEditName(e.target.value)} />
+                    </div>
+                    <div className="form-row" style={{ marginBottom:8 }}>
+                      <label>描述</label>
+                      <textarea className="input" value={editDesc} onChange={e=>setEditDesc(e.target.value)} />
+                    </div>
+                    <div style={{ display:'flex', gap:8 }}>
+                      <button className="btn small" onClick={saveEdit} disabled={!editName.trim()}>保存</button>
+                      <button className="btn small secondary" type="button" onClick={()=>{
+                        setEditingId(null); setEditName(''); setEditDesc('');
+                      }}>取消</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontWeight:600, marginBottom:6 }}>{m.name}</div>
+                    <div className="hint" style={{ minHeight:40 }}>{m.description || '无描述'}</div>
+                    <div className="hint" style={{ marginTop:8 }}>创建人：{m.created_by || '-'}</div>
+                    <div className="hint">创建时间：{m.created_at ? new Date(m.created_at).toLocaleString('zh-CN') : '-'}</div>
+                    <div style={{ display:'flex', gap:8, marginTop:10 }}>
+                      <button className="btn small secondary" type="button" onClick={()=>startEdit(m)}>编辑</button>
+                      <button className="btn small danger" type="button" onClick={()=>remove(m.id)}>删除</button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>

@@ -516,6 +516,25 @@ def create_module(data: schemas.ModuleCreate, cur: models.User = Depends(auth.ge
     m = crud.create_module(data.name, data.description, cur.username)
     return m
 
+@app.put("/api/modules/{module_id}")
+def update_module(module_id: str, data: schemas.ModuleCreate, cur: models.User = Depends(auth.get_current_user)):
+    if cur.role not in ("admin", "company_admin", "dept_admin"):
+        raise HTTPException(status_code=403, detail="仅管理员可编辑模块")
+    try:
+        return crud.update_module(module_id, data.name, data.description)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.delete("/api/modules/{module_id}")
+def delete_module(module_id: str, cur: models.User = Depends(auth.get_current_user)):
+    if cur.role not in ("admin", "company_admin", "dept_admin"):
+        raise HTTPException(status_code=403, detail="仅管理员可删除模块")
+    try:
+        crud.delete_module(module_id)
+        return {"message": "已删除"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
 
 # --------------------------
 # 任务元数据更新
