@@ -8,8 +8,8 @@ def gen_uuid():
     return str(uuid.uuid4())
 
 def local_now():
-    """统一使用东八区时间，避免显示相差8小时"""
-    return datetime.now(timezone(timedelta(hours=8)))
+    """使用系统本地时间（无强制时区），避免重复转换造成偏移"""
+    return datetime.now()
 
 class User(SQLModel, table=True):
     id: Optional[str] = Field(default_factory=gen_uuid, primary_key=True)

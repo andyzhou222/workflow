@@ -6,7 +6,7 @@ from .models import *
 from .utils import hash_password
 from .config import DATABASE_URL, DB_FILE
 
-LOCAL_TZ = timezone(timedelta(hours=8))
+LOCAL_TZ = datetime.now().astimezone().tzinfo
 IS_POSTGRES = DATABASE_URL is not None
 
 def iso_local(dt: Optional[datetime]):
@@ -15,16 +15,16 @@ def iso_local(dt: Optional[datetime]):
 
 
 def to_local(dt: Optional[datetime]):
-    """将数据库中的时间转换为东八区；若无 tz，按 UTC 处理。"""
+    """将数据库中的时间转换为本地时区；若无 tz 信息则直接返回原值。"""
     if not dt:
         return None
     if dt.tzinfo:
         try:
-            return dt.astimezone(LOCAL_TZ)
+            return dt.astimezone(LOCAL_TZ) if LOCAL_TZ else dt
         except Exception:
             return dt
-    base = dt.replace(tzinfo=timezone.utc)
-    return base.astimezone(LOCAL_TZ)
+    # 无 tz 信息，直接返回，避免误加偏移
+    return dt
 
 # 支持 PostgreSQL 和 SQLite
 # 如果设置了 DATABASE_URL（PostgreSQL），使用 PostgreSQL
@@ -162,7 +162,7 @@ def get_template(tid: str):
         return s.get(ProcessTemplate, tid)
 
 def create_instance(template_id: str, data: dict, started_by: str, old_instance_id: Optional[str] = None):
-    local_now = datetime.now(LOCAL_TZ)
+    local_now = datetime.now()
     
     with Session(engine, expire_on_commit=False) as s:
         # 如果是重新提交，将旧实例的相关任务标记为已完成，并更新实例状态
@@ -284,7 +284,7 @@ def list_all_tasks_admin():
         return results
 
 def complete_task(task_id: str, username: str, decision: str, opinion: str = None):
-    local_now = datetime.now(LOCAL_TZ)
+    local_now = datetime.now()
     with Session(engine) as s:
         task = s.get(Task, task_id)
         if not task:
@@ -578,7 +578,7 @@ def list_departments():
 
 def list_all_instances_for_monitoring():
     """列出所有流程实例供系统管理员监控，包括当前节点、负责人、停留时长"""
-    now = datetime.now().astimezone()
+    now = datetime.now()
     
     with Session(engine) as s:
         # 获取所有运行中的实例
