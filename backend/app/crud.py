@@ -6,22 +6,25 @@ from .models import *
 from .utils import hash_password
 from .config import DATABASE_URL, DB_FILE
 
-LOCAL_TZ = datetime.now().astimezone().tzinfo
+LOCAL_TZ = timezone(timedelta(hours=8))
 IS_POSTGRES = DATABASE_URL is not None
+
+def iso_local(dt: Optional[datetime]):
+    l = to_local(dt)
+    return l.isoformat() if l else None
 
 
 def to_local(dt: Optional[datetime]):
-    """将数据库中的时间转换为系统本地时区"""
+    """将数据库中的时间转换为东八区；若无 tz，按 UTC 处理。"""
     if not dt:
         return None
     if dt.tzinfo:
         try:
-            return dt.astimezone(LOCAL_TZ) if LOCAL_TZ else dt.astimezone()
+            return dt.astimezone(LOCAL_TZ)
         except Exception:
             return dt
-    if IS_POSTGRES and LOCAL_TZ:
-        return dt.replace(tzinfo=timezone.utc).astimezone(LOCAL_TZ)
-    return dt
+    base = dt.replace(tzinfo=timezone.utc)
+    return base.astimezone(LOCAL_TZ)
 
 # 支持 PostgreSQL 和 SQLite
 # 如果设置了 DATABASE_URL（PostgreSQL），使用 PostgreSQL
@@ -159,9 +162,7 @@ def get_template(tid: str):
         return s.get(ProcessTemplate, tid)
 
 def create_instance(template_id: str, data: dict, started_by: str, old_instance_id: Optional[str] = None):
-    from datetime import datetime, timezone, timedelta
-    # 使用中国时区 (UTC+8)
-    local_now = datetime.now().astimezone()
+    local_now = datetime.now(LOCAL_TZ)
     
     with Session(engine, expire_on_commit=False) as s:
         # 如果是重新提交，将旧实例的相关任务标记为已完成，并更新实例状态
@@ -228,8 +229,8 @@ def get_tasks_for_user(username: str):
                     "assignee": task.assignee,
                     "status": task.status,
                     "opinion": task.opinion,
-                    "assigned_at": task.assigned_at.isoformat() if task.assigned_at else None,
-                    "finished_at": task.finished_at.isoformat() if task.finished_at else None,
+                    "assigned_at": iso_local(task.assigned_at),
+                    "finished_at": iso_local(task.finished_at),
                     "priority": task.priority,
                     "labels": task.labels or [],
                     "module_id": task.module_id,
@@ -274,8 +275,8 @@ def list_all_tasks_admin():
                 "module_id": task.module_id,
                 "estimate_hours": task.estimate_hours,
                 "due_date": task.due_date.isoformat() if task.due_date else None,
-                "assigned_at": task.assigned_at.isoformat() if task.assigned_at else None,
-                "finished_at": task.finished_at.isoformat() if task.finished_at else None,
+                "assigned_at": iso_local(task.assigned_at),
+                "finished_at": iso_local(task.finished_at),
                 "instance_title": inst.data.get("title") if inst and inst.data else None,
                 "instance_status": inst.status if inst else None,
                 "template_name": tpl.name if tpl else None,
@@ -283,9 +284,7 @@ def list_all_tasks_admin():
         return results
 
 def complete_task(task_id: str, username: str, decision: str, opinion: str = None):
-    from datetime import datetime, timezone, timedelta
-    # 使用中国时区 (UTC+8)
-    local_now = datetime.now().astimezone()
+    local_now = datetime.now(LOCAL_TZ)
     with Session(engine) as s:
         task = s.get(Task, task_id)
         if not task:
@@ -552,8 +551,8 @@ def list_instances_by_user(username: str, status: Optional[str] = None):
                 "current_node_name": current_node_name,
                 "current_assignee": current_task.assignee if current_task else None,
                 "started_by": inst.started_by,
-                "started_at": inst.started_at.isoformat() if inst.started_at else None,
-                "ended_at": inst.ended_at.isoformat() if inst.ended_at else None,
+            "started_at": iso_local(inst.started_at),
+            "ended_at": iso_local(inst.ended_at),
                 "data": inst.data,
             })
         return results
